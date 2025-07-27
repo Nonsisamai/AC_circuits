@@ -29,7 +29,6 @@ Interaktívny elektroinžiniersky nástroj:
 - ✅ Interaktívna schéma
 - ✅ Prechodové deje: **nabíjanie kondenzátora**, **prúd cievkou**
 - ✅ Export výpočtov a schémy do PDF protokolu
-- ✅ Zobrazenie výpočtových krokov (Stredná / Vysoká škola)
 """)
 
 st.sidebar.header("🎛️ Parametre obvodu")
@@ -47,15 +46,13 @@ f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0, step=1.0) if type_cho
 phi_manual = st.sidebar.number_input("Fázový posun φ [°] (ak je známy)", value=0.0 if type_choice != "AC" else 30.0)
 phi_manual_rad = radians(phi_manual)
 
+
 # Súčiastky
 st.sidebar.markdown("---")
 st.sidebar.markdown("🧩 **Zadanie súčiastok**")
 R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1)
 L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001)
 C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001)
-
-# Úroveň výpočtov
-level = st.sidebar.radio("Zobraz úroveň výpočtov:", ["Stredná škola", "Vysoká škola"])
 
 # Interaktívna schéma
 st.subheader("🔧 Schéma zapojenia")
@@ -101,39 +98,107 @@ st.markdown(f"""
 - **Záťaž v obvode:** {zataz_type if zataz_type else "(žiadna)"}
 """)
 
-# Tlačidlo pre zobrazenie výpočtových krokov
-show_calc = st.checkbox("📐 Zobraziť všetky výpočtové kroky")
+omega = 2 * pi * f if f > 0 else 0
+XL = omega * L if L > 0 else 0.0
+XC = 1 / (omega * C) if (C > 0 and omega > 0) else 0.0
+Z_complex = complex(R, XL - XC)
+Z_abs = abs(Z_complex)
+phi_calc_rad = atan2(Z_complex.imag, Z_complex.real) if Z_abs > 0 else 0.0
+phi_calc_deg = degrees(phi_calc_rad)
+cos_phi = cos(phi_calc_rad) if Z_abs > 0 else 1.0
 
-# Teoretické vysvetlenie prechodových javov (v LaTeX)
+if input_mode == "Efektívne (RMS)":
+    Uef = U_in
+    Ief = I_in
+    Umax = Uef * sqrt(2)
+    Imax = Ief * sqrt(2)
+else:
+    Umax = U_in
+    Imax = I_in
+    Uef = Umax / sqrt(2)
+    Ief = Imax / sqrt(2)
+
+S = Uef * Ief
+P = S * cos_phi
+Q = sqrt(abs(S**2 - P**2)) if type_choice == "AC" else 0.0
+
+# Časová os a simulácie
+x = np.linspace(0, t_max, int(t_points))
+annotation_time = None
+if type_choice == "AC":
+    T = 1 / f if f > 0 else 1.0
+    x = np.linspace(0, 2*T, 1000)
+    napatie = Umax * np.sin(omega * x)
+    prud = Imax * np.sin(omega * x - phi_calc_rad)
+elif type_choice == "DC":
+    napatie = np.full_like(x, Uef)
+    prud = np.full_like(x, Ief)
+    tau = None
+else:
+    if C > 0 and R > 0:
+        tau = R * C
+        napatie = Uef * (1 - np.exp(-x / tau))
+        prud = (Uef / R) * np.exp(-x / tau)
+        annotation_time = 5 * tau
+    elif L > 0 and R > 0:
+        tau = L / R
+        napatie = np.full_like(x, Uef)
+        prud = (Uef / R) * (1 - np.exp(-x / tau))
+        annotation_time = 5 * tau
+    else:
+        napatie = np.zeros_like(x)
+        prud = np.zeros_like(x)
+        tau = None
+
+vykon = napatie * prud
+vykon_avg = np.mean(vykon)
+
+# Doplnková informácia o τ (časová konštanta)
+if type_choice.startswith("DC") and tau is not None:
+    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
+
+# Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
+if annotation_time:
+    st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
+
+# Graf s anotáciou
+fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+ax[0].plot(x, napatie, label='Napätie [V]', color='tab:blue')
+ax[1].plot(x, prud, label='Prúd [A]', color='tab:orange')
+ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
+
+# Pridanie anotácie pre čas 5τ
+if annotation_time and annotation_time <= x[-1]:
+    for a in ax:
+        a.axvline(annotation_time, color='red', linestyle='--', alpha=0.5)
+        a.text(annotation_time, a.get_ylim()[1]*0.8, '5τ', color='red')
+
+for a in ax:
+    a.legend()
+    a.grid(True)
+    a.set_ylabel("Hodnota")
+ax[2].set_xlabel("Čas [s]")
+st.subheader("📊 Priebeh veličín v čase")
+st.pyplot(fig)
+
+# Popis prechodového deja
 if type_choice == "DC - Prechodový dej (R-C / R-L)":
     if C > 0:
-        st.latex(r"u_C(t) = U \cdot \left(1 - e^{-t/RC}\right)")
-        if level == "Vysoká škola":
-            st.markdown("""Vysvetlenie: RC obvod s jednosmerným napätím spôsobí, že kondenzátor sa najprv správa ako skrat, no postupne sa nabíja až po hodnotu U. Prúd exponenciálne klesá.""")
+        st.info("Kondenzátor sa nabíja exponenciálne podľa vzťahu: \n **U(t) = U(1 - e^(-t/RC))**. \n Prúd na začiatku prudko klesá, až dosiahne nulu v ustálenom stave.")
     elif L > 0:
-        st.latex(r"i_L(t) = \frac{U}{R} \cdot \left(1 - e^{-Rt/L}\right)")
-        if level == "Vysoká škola":
-            st.markdown("""Vysvetlenie: RL obvod spôsobí, že prúd cievkou narastá postupne, pretože cievka sa bráni zmene prúdu. Napätie na cievke počas deja klesá až na nulu.""")
+        st.info("Cievka spôsobí oneskorený nábeh prúdu: \n **I(t) = (U/R)(1 - e^(-Rt/L))**. \n Prúd stúpa od nuly, až sa ustáli. Napätie na cievke počas prechodu klesá.")
 
-# (Zvyšok výpočtov, simulácií a grafov ostáva nezmenený...)
+# Výpočtové výsledky
+st.subheader("🧮 Výpočty")
+st.markdown(f"""
+- **Zdanlivý výkon (S):** {S:.2f} VA  
+- **Činný výkon (P):** {P:.2f} W  
+- **Jalový výkon (Q):** {Q:.2f} VAR  
+- **Fázový posun φ:** {phi_calc_deg:.2f}°  
+- **Účinník (cosφ):** {cos_phi:.3f}  
+- **Uef / Ief:** {Uef:.2f} V / {Ief:.2f} A  
+- **Umax / Imax:** {Umax:.2f} V / {Imax:.2f} A
+""")
 
-# Výpočtové výsledky (krátke aj dlhé vysvetlenie)
-if show_calc:
-    st.subheader("📘 Detailné výpočty")
-    if level == "Stredná škola":
-        st.markdown("""Základné vzťahy:
-- \( S = U \cdot I \)
-- \( P = S \cdot \cos(\phi) \)
-- \( Q = \sqrt{S^2 - P^2} \)
-""")
-    else:
-        st.markdown("""Komplexný výpočet impedancie:
-\[ Z = R + j(X_L - X_C) \]
-\[ |Z| = \sqrt{R^2 + (X_L - X_C)^2} \]
-\[ \phi = \arctan\left(\frac{X_L - X_C}{R}\right) \]
-Potom:
-\[ U_{max} = U_{ef} \cdot \sqrt{2}, \quad I_{max} = I_{ef} \cdot \sqrt{2} \]
-\[ S = U_{ef} \cdot I_{ef}, \quad P = S \cdot \cos(\phi), \quad Q = \sqrt{S^2 - P^2} \]
-""")
 st.markdown("---")
 st.markdown("👨Autor: Adrian Mahdon")
