@@ -113,6 +113,6 @@ ani = animation.FuncAnimation(fig2, animate, frames=frames, interval=50, blit=Tr
 st.pyplot(fig2)
 
 st.markdown("---")
-st.markdown("👨‍🏫 Tento nástroj slúži na výuku a intuitívne pochopenie javov v striedavých obvodoch. Pre odborné výpočty použite verifikovaný software.Autor: Adrian Mahdon")
+st.markdown("👨‍🏫 Tento nástroj slúži na výuku a intuitívne pochopenie javov v striedavých obvodoch. Pre odborné výpočty použite verifikovaný software")
 st.markdown("---")
 st.markdown("👨Autor: Adrian Mahdon")
