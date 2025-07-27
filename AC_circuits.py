@@ -45,6 +45,15 @@ I_in = st.sidebar.number_input("Prúd [A]", value=5.0, step=0.1)
 f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0, step=1.0) if type_choice == "AC" else 0.0
 phi_manual = st.sidebar.number_input("Fázový posun φ [°] (ak je známy)", value=0.0 if type_choice != "AC" else 30.0)
 phi_manual_rad = radians(phi_manual)
+
+
+# Súčiastky
+st.sidebar.markdown("---")
+st.sidebar.markdown("🧩 **Zadanie súčiastok**")
+R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1)
+L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001)
+C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001)
+
 # Interaktívna schéma
 st.subheader("🔧 Schéma zapojenia")
 g = graphviz.Digraph()
@@ -65,13 +74,6 @@ if C > 0:
 g.edge(last, "Z")
 g.node("Z", "Uzemnenie")
 st.graphviz_chart(g)
-
-# Súčiastky
-st.sidebar.markdown("---")
-st.sidebar.markdown("🧩 **Zadanie súčiastok**")
-R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1)
-L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001)
-C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001)
 
 # Časové rozlíšenie pre prechodové javy
 if type_choice == "DC - Prechodový dej (R-C / R-L)":
