@@ -70,6 +70,12 @@ if L > 0: zataz_popis.append("L")
 if C > 0: zataz_popis.append("C")
 zataz_type = "+".join(zataz_popis) if zataz_popis else "Žiadna záťaž"
 
+st.subheader("📋 Prehľad zapojenia")
+st.markdown(f"""
+- **Zvolený režim:** {type_choice}  
+- **Záťaž v obvode:** {zataz_type if zataz_type else "(žiadna)"}
+""")
+
 omega = 2 * pi * f if f > 0 else 0
 XL = omega * L if L > 0 else 0.0
 XC = 1 / (omega * C) if (C > 0 and omega > 0) else 0.0
@@ -105,6 +111,7 @@ if type_choice == "AC":
 elif type_choice == "DC":
     napatie = np.full_like(x, Uef)
     prud = np.full_like(x, Ief)
+    tau = None
 else:
     if C > 0 and R > 0:
         tau = R * C
@@ -119,43 +126,17 @@ else:
     else:
         napatie = np.zeros_like(x)
         prud = np.zeros_like(x)
+        tau = None
 
 vykon = napatie * prud
 vykon_avg = np.mean(vykon)
 
 # Doplnková informácia o τ (časová konštanta)
-if type_choice.startswith("DC"):
+if type_choice.startswith("DC") and tau is not None:
     st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
 
 # Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
 if annotation_time:
     st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
-
-# Graf s anotáciou
-fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-ax[0].plot(x, napatie, label='Napätie [V]', color='tab:blue')
-ax[1].plot(x, prud, label='Prúd [A]', color='tab:orange')
-ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
-
-# Pridanie anotácie pre čas 5τ
-if annotation_time and annotation_time <= x[-1]:
-    for a in ax:
-        a.axvline(annotation_time, color='red', linestyle='--', alpha=0.5)
-        a.text(annotation_time, a.get_ylim()[1]*0.8, '5τ', color='red')
-
-for a in ax:
-    a.legend()
-    a.grid(True)
-    a.set_ylabel("Hodnota")
-ax[2].set_xlabel("Čas [s]")
-st.subheader("📊 Priebeh veličín v čase")
-st.pyplot(fig)
-
-# Popis prechodového deja
-if type_choice == "DC - Prechodový dej (R-C / R-L)":
-    if C > 0:
-        st.info("Kondenzátor sa nabíja exponenciálne podľa vzťahu: \n **U(t) = U(1 - e^(-t/RC))**. \n Prúd na začiatku prudko klesá, až dosiahne nulu v ustálenom stave.")
-    elif L > 0:
-        st.info("Cievka spôsobí oneskorený nábeh prúdu: \n **I(t) = (U/R)(1 - e^(-Rt/L))**. \n Prúd stúpa od nuly, až sa ustáli. Napätie na cievke počas prechodu klesá.")
 st.markdown("---")
 st.markdown("👨Autor: Adrian Mahdon")
