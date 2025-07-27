@@ -100,44 +100,40 @@ S = Uef * Ief
 P = S * cos_phi
 Q = sqrt(abs(S**2 - P**2)) if type_choice == "AC" else 0.0
 
-# Priebehy v čase
-T = 1 / f if f > 0 else 1.0
-x = np.linspace(0, 2*T, 1000)
-napatie = Umax * np.sin(omega * x) if type_choice == "AC" else np.full_like(x, Uef)
-prud = Imax * np.sin(omega * x - phi_calc_rad) if type_choice == "AC" else np.full_like(x, Ief)
+# Časová os a simulácie
+x = np.linspace(0, t_max, int(t_points))
+annotation_time = None
+if type_choice == "AC":
+    T = 1 / f if f > 0 else 1.0
+    x = np.linspace(0, 2*T, 1000)
+    napatie = Umax * np.sin(omega * x)
+    prud = Imax * np.sin(omega * x - phi_calc_rad)
+elif type_choice == "DC":
+    napatie = np.full_like(x, Uef)
+    prud = np.full_like(x, Ief)
+    tau = None
+else:
+    if C > 0 and R > 0:
+        tau = R * C
+        napatie = Uef * (1 - np.exp(-x / tau))
+        prud = (Uef / R) * np.exp(-x / tau)
+        annotation_time = 5 * tau
+    elif L > 0 and R > 0:
+        tau = L / R
+        napatie = np.full_like(x, Uef)
+        prud = (Uef / R) * (1 - np.exp(-x / tau))
+        annotation_time = 5 * tau
+    else:
+        napatie = np.zeros_like(x)
+        prud = np.zeros_like(x)
+        tau = None
+
 vykon = napatie * prud
 vykon_avg = np.mean(vykon)
 
-# Výsledky
-st.subheader("📐 Výsledky a charakteristiky")
-st.markdown(f"""
-- **Režim:** {type_choice}, **Záťaž:** {zataz_type if zataz_type else 'žiadna'}  
-- **Z =** {Z_abs:.2f} Ω, **φ =** {phi_calc_deg:.2f}°, **cosφ =** {cos_phi:.3f}  
-- **XL =** {XL:.2f} Ω, **XC =** {XC:.2f} Ω  
-- **Uef =** {Uef:.2f} V, **Umax =** {Umax:.2f} V  
-- **Ief =** {Ief:.2f} A, **Imax =** {Imax:.2f} A  
-- **S =** {S:.2f} VA, **P =** {P:.2f} W, **Q =** {Q:.2f} VAR  
-- **⟨P(t)⟩ =** {vykon_avg:.2f} W
-""")
-
-# Interaktívna schéma
-st.subheader("🔧 Interaktívna schéma obvodu")
-g = graphviz.Digraph()
-g.attr(size='8')
-g.node("A", "Napätie")
-if R > 0:
-    g.node("R", "R")
-    g.edge("A", "R")
-if L > 0:
-    g.node("L", "L")
-    g.edge("R" if R > 0 else "A", "L")
-if C > 0:
-    g.node("C", "C")
-    g.edge("L" if L > 0 else ("R" if R > 0 else "A"), "C")
-g.edge("C" if C > 0 else ("L" if L > 0 else ("R" if R > 0 else "A")), "Z", label="I")
-g.node("Z", "Uzemnenie")
-st.graphviz_chart(g)
-
+# Doplnková informácia o τ (časová konštanta)
+if type_choice.startswith("DC") and tau is not None:
+    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
 
 # Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
 if annotation_time:
@@ -181,5 +177,6 @@ st.markdown(f"""
 - **Uef / Ief:** {Uef:.2f} V / {Ief:.2f} A  
 - **Umax / Imax:** {Umax:.2f} V / {Imax:.2f} A
 """)
+
 st.markdown("---")
 st.markdown("👨Autor: Adrian Mahdon")
