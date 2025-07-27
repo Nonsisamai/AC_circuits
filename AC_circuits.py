@@ -38,36 +38,21 @@ type_choice = st.sidebar.selectbox("Režim obvodu", ["AC", "DC", "DC - Prechodov
 
 # Zadanie RMS alebo peak
 input_mode = st.sidebar.radio("Zadávaš hodnoty ako:", ["Efektívne (RMS)", "Maximálne (peak)"])
-U_in = st.sidebar.number_input("Napätie [V]", value=230.0, step=0.1, format="%0.9f")
-I_in = st.sidebar.number_input("Prúd [A]", value=5.0, step=0.1, format="%0.9f")
+U_in = st.sidebar.number_input("Napätie [V]", value=230.0, step=0.1)
+I_in = st.sidebar.number_input("Prúd [A]", value=5.0, step=0.1)
 
 # Frekvencia a fázový posun
-f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0, step=1.0, format="%0.9f") if type_choice == "AC" else 0.0
-phi_manual = st.sidebar.number_input("Fázový posun φ [°] (ak je známy)", value=0.0 if type_choice != "AC" else 30.0, format="%0.9f")
+f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0, step=1.0) if type_choice == "AC" else 0.0
+phi_manual = st.sidebar.number_input("Fázový posun φ [°] (ak je známy)", value=0.0 if type_choice != "AC" else 30.0)
 phi_manual_rad = radians(phi_manual)
 
-# Jednotkové škály
-st.sidebar.markdown("---")
-st.sidebar.markdown("📐 **Jednotková mierka súčiastok**")
-scale_dict = {
-    "piko (1e-12)": 1e-12,
-    "nano (1e-9)": 1e-9,
-    "mikro (1e-6)": 1e-6,
-    "mili (1e-3)": 1e-3,
-    "jednotky (1)": 1,
-    "kilo (1e3)": 1e3,
-    "mega (1e6)": 1e6,
-    "giga (1e9)": 1e9
-}
-scale_choice = st.sidebar.selectbox("Zvoľ mierku súčiastok", list(scale_dict.keys()), index=4)
-scale = scale_dict[scale_choice]
 
 # Súčiastky
 st.sidebar.markdown("---")
 st.sidebar.markdown("🧩 **Zadanie súčiastok**")
-R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1, format="%0.9f") * scale
-L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001, format="%0.9f") * scale
-C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001, format="%0.9f") * scale
+R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1)
+L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001)
+C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001)
 
 # Interaktívna schéma
 st.subheader("🔧 Schéma zapojenia")
@@ -94,13 +79,11 @@ st.graphviz_chart(g)
 if type_choice == "DC - Prechodový dej (R-C / R-L)":
     st.sidebar.markdown("---")
     st.sidebar.markdown("⏱️ **Čas simulácie prechodu**")
-    t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=1e-12, step=0.1, format="%0.12f")
+    t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=0.01, step=0.1)
     t_points = st.sidebar.number_input("Počet bodov", value=1000, step=100)
 else:
     t_max = 0.1
     t_points = 1000
-
-# (Ostatný kód zostáva nezmenený...)
 
 # Auto-zistenie typu záťaže
 zataz_popis = []
@@ -172,11 +155,11 @@ vykon_avg = np.mean(vykon)
 
 # Doplnková informácia o τ (časová konštanta)
 if type_choice.startswith("DC") and tau is not None:
-    st.markdown(f"**Časová konštanta τ =** {tau:.9f} s")
+    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
 
 # Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
 if annotation_time:
-    st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.9f} s (≈ 5τ)")
+    st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
 
 # Graf s anotáciou
 fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
@@ -208,13 +191,13 @@ if type_choice == "DC - Prechodový dej (R-C / R-L)":
 # Výpočtové výsledky
 st.subheader("🧮 Výpočty")
 st.markdown(f"""
-- **Zdanlivý výkon (S):** {S:.9f} VA  
-- **Činný výkon (P):** {P:.9f} W  
-- **Jalový výkon (Q):** {Q:.9f} VAR  
-- **Fázový posun φ:** {phi_calc_deg:.9f}°  
-- **Účinník (cosφ):** {cos_phi:.9f}  
-- **Uef / Ief:** {Uef:.2f} V / {Ief:.9f} A  
-- **Umax / Imax:** {Umax:.2f} V / {Imax:.9f} A
+- **Zdanlivý výkon (S):** {S:.2f} VA  
+- **Činný výkon (P):** {P:.2f} W  
+- **Jalový výkon (Q):** {Q:.2f} VAR  
+- **Fázový posun φ:** {phi_calc_deg:.2f}°  
+- **Účinník (cosφ):** {cos_phi:.3f}  
+- **Uef / Ief:** {Uef:.2f} V / {Ief:.2f} A  
+- **Umax / Imax:** {Umax:.2f} V / {Imax:.2f} A
 """)
 
 st.markdown("---")
