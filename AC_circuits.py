@@ -1,4 +1,4 @@
-# AC/DC Educational Circuit Visualizer with Expert Logic
+# AC/DC Educational Circuit Visualizer with Interactive Schematic and Step-by-Step Logic
 # Streamlit app designed by an electrical engineer & educator
 
 import streamlit as st
@@ -6,9 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import io
+import graphviz
 from math import cos, sin, radians, degrees, pi, sqrt, atan2
 
-# Page setup
 st.set_page_config(page_title="AC/DC Circuit Visualizer", layout="wide")
 
 # Theme toggle
@@ -18,15 +18,15 @@ if dark_mode:
 else:
     plt.style.use('default')
 
-st.title("🔌 AC/DC Obvody – Vizualizácia a Výpočty pre študentov")
+st.title("🔌 AC/DC Obvody – Vizualizácia, Schéma a Výpočty")
 
 st.markdown("""
-Tento nástroj slúži na pochopenie správania sa AC a DC obvodov s rôznymi záťažami (R, L, C, RLC):
-- Zobrazí časové priebehy napätia, prúdu a výkonu
-- Umožní výpočet výkonov a reaktancií
-- Rozlišuje medzi AC a DC režimom
-- Zobrazí medzičísla, výpočtové vzorce a výsledky
-- Exportuje výsledky a vizualizácie
+Interaktívny nástroj na pochopenie a výpočet správania elektrických obvodov:
+- AC aj DC režim
+- Výpočet všetkých výkonov, impedancií, reaktancií
+- Interaktívna schéma podľa zadaných prvkov (R, L, C)
+- Fázorový diagram a priebehy v čase
+- Tlačidlo „Zobraziť výpočtové kroky“ s kompletnými rovnicami a číslami
 """)
 
 st.sidebar.header("🎛️ Parametre obvodu")
@@ -34,32 +34,41 @@ st.sidebar.header("🎛️ Parametre obvodu")
 # Typ obvodu: AC alebo DC
 type_choice = st.sidebar.selectbox("Režim obvodu", ["AC", "DC"])
 
-# Zadávanie hodnôt
+# Zadávanie RMS alebo peak
 input_mode = st.sidebar.radio("Zadávaš hodnoty ako:", ["Efektívne (RMS)", "Maximálne (peak)"])
-
-# Napätie a prúd
 U_in = st.sidebar.number_input("Napätie [V]", value=230.0, step=0.1)
 I_in = st.sidebar.number_input("Prúd [A]", value=5.0, step=0.1)
 
-# Frekvencia a fázový posun (len pre AC)
+# Frekvencia a fázový posun (len AC)
 f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0, step=1.0) if type_choice == "AC" else 0.0
-phi_deg = st.sidebar.number_input("Fázový posun φ [°]", value=30.0 if type_choice == "AC" else 0.0)
-phi_rad = radians(phi_deg)
-omega = 2 * pi * f if f > 0 else 0
+phi_manual = st.sidebar.number_input("Fázový posun φ [°] (ak je známy)", value=0.0 if type_choice == "DC" else 30.0)
+phi_manual_rad = radians(phi_manual)
 
-# Hodnoty súčiastok
+# Súčiastky
+st.sidebar.markdown("---")
+st.sidebar.markdown("🧩 **Zadanie súčiastok**")
 R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1)
 L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001)
 C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001)
 
-# Automatický výber typu záťaže
+# Auto-zistenie typu záťaže
 zataz_popis = []
 if R > 0: zataz_popis.append("R")
 if L > 0: zataz_popis.append("L")
 if C > 0: zataz_popis.append("C")
 zataz_type = "+".join(zataz_popis) if zataz_popis else "Žiadna záťaž"
 
-# Výpočty základných hodnôt
+# Výpočty
+omega = 2 * pi * f if f > 0 else 0
+XL = omega * L if L > 0 else 0.0
+XC = 1 / (omega * C) if (C > 0 and omega > 0) else 0.0
+Z_complex = complex(R, XL - XC)
+Z_abs = abs(Z_complex)
+phi_calc_rad = atan2(Z_complex.imag, Z_complex.real) if Z_abs > 0 else 0.0
+phi_calc_deg = degrees(phi_calc_rad)
+cos_phi = cos(phi_calc_rad) if Z_abs > 0 else 1.0
+
+# Výpočet RMS/peak
 if input_mode == "Efektívne (RMS)":
     Uef = U_in
     Ief = I_in
@@ -71,89 +80,112 @@ else:
     Uef = Umax / sqrt(2)
     Ief = Imax / sqrt(2)
 
-# Reaktancie a impedancia
-XL = omega * L if L > 0 else 0.0
-XC = 1 / (omega * C) if (C > 0 and omega > 0) else 0.0
-Z_complex = complex(R, XL - XC)
-Z_abs = abs(Z_complex)
-phi_calc_rad = atan2(Z_complex.imag, Z_complex.real)
-phi_calc_deg = degrees(phi_calc_rad)
-cos_phi = cos(phi_calc_rad) if Z_abs > 0 else 1.0
-
-# Výpočty výkonov
+# Výkony
 S = Uef * Ief
 P = S * cos_phi
 Q = sqrt(abs(S**2 - P**2)) if type_choice == "AC" else 0.0
 
-# Výpočet napätí, prúdov, výkonu v čase
-t_duration = 2 / f if f > 0 else 0.1
-x = np.linspace(0, t_duration, 1000)
+# Priebehy v čase
+T = 1 / f if f > 0 else 1.0
+x = np.linspace(0, 2*T, 1000)
 napatie = Umax * np.sin(omega * x) if type_choice == "AC" else np.full_like(x, Uef)
 prud = Imax * np.sin(omega * x - phi_calc_rad) if type_choice == "AC" else np.full_like(x, Ief)
 vykon = napatie * prud
 vykon_avg = np.mean(vykon)
 
-# Zobrazenie výpočtov
-st.subheader("📐 Vypočítané hodnoty")
+# Výsledky
+st.subheader("📐 Výsledky a charakteristiky")
 st.markdown(f"""
-**Zadané hodnoty:**  
-- Režim: **{type_choice}**, Zadávanie: **{input_mode}**  
-- Typ záťaže: **{zataz_type if zataz_type else 'žiadna'}**
-
-**Základné výpočty:**  
-- Uef = {Uef:.2f} V, Umax = {Umax:.2f} V  
-- Ief = {Ief:.2f} A, Imax = {Imax:.2f} A  
-- Z = {Z_abs:.2f} Ω, φ = {phi_calc_deg:.2f}°, cosφ = {cos_phi:.3f}  
-
-**Výkony:**  
-- S = {S:.2f} VA  
-- P = {P:.2f} W  
-- Q = {Q:.2f} VAR (len pre AC)  
-- ⟨P(t)⟩ ≈ {vykon_avg:.2f} W  
+- **Režim:** {type_choice}, **Záťaž:** {zataz_type if zataz_type else 'žiadna'}  
+- **Z =** {Z_abs:.2f} Ω, **φ =** {phi_calc_deg:.2f}°, **cosφ =** {cos_phi:.3f}  
+- **XL =** {XL:.2f} Ω, **XC =** {XC:.2f} Ω  
+- **Uef =** {Uef:.2f} V, **Umax =** {Umax:.2f} V  
+- **Ief =** {Ief:.2f} A, **Imax =** {Imax:.2f} A  
+- **S =** {S:.2f} VA, **P =** {P:.2f} W, **Q =** {Q:.2f} VAR  
+- **⟨P(t)⟩ =** {vykon_avg:.2f} W
 """)
 
-# Grafy
-st.subheader("📈 Časové priebehy")
-fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-ax[0].plot(x * 1000, napatie, label='Napätie [V]', color='tab:blue')
-ax[1].plot(x * 1000, prud, label='Prúd [A]', color='tab:orange')
-ax[2].plot(x * 1000, vykon, label=f'Výkon [W] (avg={vykon_avg:.2f})', color='tab:green')
+# Interaktívna schéma
+st.subheader("🔧 Interaktívna schéma obvodu")
+g = graphviz.Digraph()
+g.attr(size='8')
+g.node("A", "Napätie")
+if R > 0:
+    g.node("R", "R")
+    g.edge("A", "R")
+if L > 0:
+    g.node("L", "L")
+    g.edge("R" if R > 0 else "A", "L")
+if C > 0:
+    g.node("C", "C")
+    g.edge("L" if L > 0 else ("R" if R > 0 else "A"), "C")
+g.edge("C" if C > 0 else ("L" if L > 0 else ("R" if R > 0 else "A")), "Z", label="I")
+g.node("Z", "Uzemnenie")
+st.graphviz_chart(g)
 
-for a in ax:
-    a.legend()
-    a.grid(True)
-    a.set_ylabel("Hodnota")
+# Časové priebehy
+tabs = st.tabs(["📊 Priebeh veličín", "🧭 Fázorový diagram", "📄 Výpočtové kroky"])
 
-ax[2].set_xlabel("Čas [ms]")
-st.pyplot(fig)
+with tabs[0]:
+    fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+    ax[0].plot(x * 1000, napatie, label='Napätie [V]', color='tab:blue')
+    ax[1].plot(x * 1000, prud, label='Prúd [A]', color='tab:orange')
+    ax[2].plot(x * 1000, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
+    for a in ax:
+        a.legend()
+        a.grid(True)
+        a.set_ylabel("Hodnota")
+    ax[2].set_xlabel("Čas [ms]")
+    st.pyplot(fig)
 
-# Fázorové zobrazenie (len AC)
-if type_choice == "AC" and zataz_type != "":
-    st.subheader("🧭 Fázorový diagram")
-    t_fazor = st.slider("Fázorový čas [ms]", 0.0, float(t_duration * 1000), step=1.0)
-    t_rad = (t_fazor / 1000.0) * omega
-    fig2, ax2 = plt.subplots(figsize=(3.5, 3.5))
-    ax2.arrow(0, 0, cos(t_rad), sin(t_rad), head_width=0.05, color='tab:blue', label="Napätie")
-    ax2.arrow(0, 0, cos(t_rad - phi_calc_rad), sin(t_rad - phi_calc_rad), head_width=0.05, color='tab:orange', label="Prúd")
-    ax2.set_xlim(-1.2, 1.2)
-    ax2.set_ylim(-1.2, 1.2)
-    ax2.set_aspect('equal')
-    ax2.grid(True)
-    ax2.legend()
-    st.pyplot(fig2)
+with tabs[1]:
+    if type_choice == "AC" and zataz_type:
+        t_slider = st.slider("Fázorový čas [ms]", 0.0, float(2*T*1000), step=1.0)
+        t_rad = (t_slider / 1000.0) * omega
+        fig2, ax2 = plt.subplots(figsize=(3, 3))
+        ax2.arrow(0, 0, cos(t_rad), sin(t_rad), head_width=0.05, color='tab:blue', label="Napätie")
+        ax2.arrow(0, 0, cos(t_rad - phi_calc_rad), sin(t_rad - phi_calc_rad), head_width=0.05, color='tab:orange', label="Prúd")
+        ax2.set_xlim(-1.2, 1.2)
+        ax2.set_ylim(-1.2, 1.2)
+        ax2.set_aspect('equal')
+        ax2.grid(True)
+        ax2.legend()
+        st.pyplot(fig2)
 
-# Export
-st.subheader("📤 Export")
+with tabs[2]:
+    st.markdown("""
+    ### 📄 Výpočtové kroky
+
+    **1. Výpočet reaktancií:**  
+    ω = 2πf = {omega:.2f} rad/s  
+    XL = ωL = {XL:.2f} Ω  
+    XC = 1 / (ωC) = {XC:.2f} Ω  
+
+    **2. Impedancia:**  
+    Z = R + j(XL - XC) = {R:.2f} + j({(XL - XC):.2f}) Ω  
+    |Z| = {Z_abs:.2f} Ω  
+    φ = arctg((XL - XC)/R) = {phi_calc_deg:.2f}°  
+
+    **3. Prúdy a napätia:**  
+    Umax = Uef × √2 = {Umax:.2f} V  
+    Imax = Ief × √2 = {Imax:.2f} A  
+
+    **4. Výkony:**  
+    S = Uef × Ief = {S:.2f} VA  
+    P = S × cosφ = {P:.2f} W  
+    Q = √(S² - P²) = {Q:.2f} VAR  
+    ⟨P(t)⟩ = {vykon_avg:.2f} W
+    """)
+
+# Export výsledkov
 df = pd.DataFrame({
     "čas [s]": x,
     "napätie [V]": napatie,
     "prúd [A]": prud,
     "výkon [W]": vykon
 })
-csv = df.to_csv(index=False).encode('utf-8')
-st.download_button("📥 Export do CSV", csv, file_name="vypocet.csv", mime='text/csv')
 
-st.markdown("---")
-st.markdown("👨‍🏫 všetky výpočty vychádzajú zo základných fyzikálnych zákonov a reálnych elektrických modelov.")
+csv = df.to_csv(index=False).encode('utf-8')
+st.download_button("📥 Export CSV", csv, file_name="vysledky.csv", mime="text/csv")
 st.markdown("---")
 st.markdown("👨Autor: Adrian Mahdon")
