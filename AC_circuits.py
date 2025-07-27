@@ -18,7 +18,7 @@ if dark_mode:
 else:
     plt.style.use('default')
 
-st.title("🔌 AC/DC Obvody – Vizualizácia a Výpočty pre študentov aj odborníkov")
+st.title("🔌 AC/DC Obvody – Vizualizácia priebehov a Výpočty")
 
 st.markdown("""
 Tento nástroj slúži na pochopenie správania sa AC a DC obvodov s rôznymi záťažami (R, L, C, RLC):
@@ -178,6 +178,6 @@ if type_choice == "AC":
     st.pyplot(fig2)
 
 st.markdown("---")
-st.markdown("👨‍🏫 Tento nástroj navrhol elektroinžinier s cieľom poskytnúť nástroj vhodný pre výučbu, sebavzdelávanie aj odbornú analýzu AC a DC obvodov.")
+st.markdown("👨‍🏫 Tento nástroj bol vytvorený s cieľom poskytnúť nástroj vhodný pre výučbu, sebavzdelávanie aj odbornú analýzu AC a DC obvodov.")
 st.markdown("---")
 st.markdown("👨Autor: Adrian Mahdon")
