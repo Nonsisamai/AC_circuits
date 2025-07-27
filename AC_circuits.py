@@ -38,21 +38,36 @@ type_choice = st.sidebar.selectbox("Režim obvodu", ["AC", "DC", "DC - Prechodov
 
 # Zadanie RMS alebo peak
 input_mode = st.sidebar.radio("Zadávaš hodnoty ako:", ["Efektívne (RMS)", "Maximálne (peak)"])
-U_in = st.sidebar.number_input("Napätie [V]", value=230.0, step=0.1)
-I_in = st.sidebar.number_input("Prúd [A]", value=5.0, step=0.1)
+U_in = st.sidebar.number_input("Napätie [V]", value=230.0, step=0.1, format="%0.9f")
+I_in = st.sidebar.number_input("Prúd [A]", value=5.0, step=0.1, format="%0.9f")
 
 # Frekvencia a fázový posun
-f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0, step=1.0) if type_choice == "AC" else 0.0
-phi_manual = st.sidebar.number_input("Fázový posun φ [°] (ak je známy)", value=0.0 if type_choice != "AC" else 30.0)
+f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0, step=1.0, format="%0.9f") if type_choice == "AC" else 0.0
+phi_manual = st.sidebar.number_input("Fázový posun φ [°] (ak je známy)", value=0.0 if type_choice != "AC" else 30.0, format="%0.9f")
 phi_manual_rad = radians(phi_manual)
 
+# Jednotkové škály
+st.sidebar.markdown("---")
+st.sidebar.markdown("📐 **Jednotková mierka súčiastok**")
+scale_dict = {
+    "piko (1e-12)": 1e-12,
+    "nano (1e-9)": 1e-9,
+    "mikro (1e-6)": 1e-6,
+    "mili (1e-3)": 1e-3,
+    "jednotky (1)": 1,
+    "kilo (1e3)": 1e3,
+    "mega (1e6)": 1e6,
+    "giga (1e9)": 1e9
+}
+scale_choice = st.sidebar.selectbox("Zvoľ mierku súčiastok", list(scale_dict.keys()), index=4)
+scale = scale_dict[scale_choice]
 
 # Súčiastky
 st.sidebar.markdown("---")
 st.sidebar.markdown("🧩 **Zadanie súčiastok**")
-R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1)
-L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001)
-C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001)
+R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1, format="%0.9f") * scale
+L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001, format="%0.9f") * scale
+C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001, format="%0.9f") * scale
 
 # Interaktívna schéma
 st.subheader("🔧 Schéma zapojenia")
@@ -79,11 +94,13 @@ st.graphviz_chart(g)
 if type_choice == "DC - Prechodový dej (R-C / R-L)":
     st.sidebar.markdown("---")
     st.sidebar.markdown("⏱️ **Čas simulácie prechodu**")
-    t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=0.0000001, step=0.1)
+    t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=1e-12, step=0.1, format="%0.12f")
     t_points = st.sidebar.number_input("Počet bodov", value=1000, step=100)
 else:
     t_max = 0.1
     t_points = 1000
+
+# (Ostatný kód zostáva nezmenený...)
 
 # Auto-zistenie typu záťaže
 zataz_popis = []
