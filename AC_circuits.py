@@ -53,6 +53,16 @@ R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1)
 L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001)
 C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001)
 
+# Časové rozlíšenie pre prechodové javy
+if type_choice == "DC - Prechodový dej (R-C / R-L)":
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("⏱️ **Čas simulácie prechodu**")
+    t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=0.01, step=0.1)
+    t_points = st.sidebar.number_input("Počet bodov", value=1000, step=100)
+else:
+    t_max = 0.1
+    t_points = 1000
+
 # Auto-zistenie typu záťaže
 zataz_popis = []
 if R > 0: zataz_popis.append("R")
@@ -84,25 +94,28 @@ S = Uef * Ief
 P = S * cos_phi
 Q = sqrt(abs(S**2 - P**2)) if type_choice == "AC" else 0.0
 
-# Časová os
+# Časová os a simulácie
+x = np.linspace(0, t_max, int(t_points))
+annotation_time = None
 if type_choice == "AC":
     T = 1 / f if f > 0 else 1.0
     x = np.linspace(0, 2*T, 1000)
     napatie = Umax * np.sin(omega * x)
     prud = Imax * np.sin(omega * x - phi_calc_rad)
 elif type_choice == "DC":
-    x = np.linspace(0, 0.1, 1000)
     napatie = np.full_like(x, Uef)
     prud = np.full_like(x, Ief)
 else:
-    # Prechodový dej (RC/RL nabíjanie/vybíjanie)
-    x = np.linspace(0, 0.2, 1000)
     if C > 0 and R > 0:
-        napatie = Uef * (1 - np.exp(-x / (R * C)))
-        prud = (Uef / R) * np.exp(-x / (R * C))
+        tau = R * C
+        napatie = Uef * (1 - np.exp(-x / tau))
+        prud = (Uef / R) * np.exp(-x / tau)
+        annotation_time = 5 * tau
     elif L > 0 and R > 0:
+        tau = L / R
         napatie = np.full_like(x, Uef)
-        prud = (Uef / R) * (1 - np.exp(-R * x / L))
+        prud = (Uef / R) * (1 - np.exp(-x / tau))
+        annotation_time = 5 * tau
     else:
         napatie = np.zeros_like(x)
         prud = np.zeros_like(x)
@@ -110,137 +123,39 @@ else:
 vykon = napatie * prud
 vykon_avg = np.mean(vykon)
 
-# Výsledky
-st.subheader("📐 Výsledky")
-st.markdown(f"""
-- **Režim:** {type_choice}  
-- **Záťaž:** {zataz_type}  
-- **Z =** {Z_abs:.2f} Ω, **φ =** {phi_calc_deg:.2f}°, **cosφ =** {cos_phi:.3f}  
-- **XL =** {XL:.2f} Ω, **XC =** {XC:.2f} Ω  
-- **Uef =** {Uef:.2f} V, **Umax =** {Umax:.2f} V  
-- **Ief =** {Ief:.2f} A, **Imax =** {Imax:.2f} A  
-- **S =** {S:.2f} VA, **P =** {P:.2f} W, **Q =** {Q:.2f} VAR  
-- **⟨P(t)⟩ =** {vykon_avg:.2f} W
-""")
+# Doplnková informácia o τ (časová konštanta)
+if type_choice.startswith("DC"):
+    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
 
-# Interaktívna schéma
-st.subheader("🔧 Schéma zapojenia")
-g = graphviz.Digraph()
-g.node("V", "Zdroj")
-last = "V"
-if R > 0:
-    g.node("R", "R")
-    g.edge(last, "R")
-    last = "R"
-if L > 0:
-    g.node("L", "L")
-    g.edge(last, "L")
-    last = "L"
-if C > 0:
-    g.node("C", "C")
-    g.edge(last, "C")
-    last = "C"
-g.edge(last, "Z")
-g.node("Z", "Uzemnenie")
-st.graphviz_chart(g)
+# Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
+if annotation_time:
+    st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
 
-# Časové priebehy
-tabs = st.tabs(["📊 Priebeh veličín", "🧭 Fázorový diagram", "📄 Výpočtové kroky"])
+# Graf s anotáciou
+fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+ax[0].plot(x, napatie, label='Napätie [V]', color='tab:blue')
+ax[1].plot(x, prud, label='Prúd [A]', color='tab:orange')
+ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
 
-with tabs[0]:
-    fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-    ax[0].plot(x * 1000, napatie, label='Napätie [V]', color='tab:blue')
-    ax[1].plot(x * 1000, prud, label='Prúd [A]', color='tab:orange')
-    ax[2].plot(x * 1000, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
+# Pridanie anotácie pre čas 5τ
+if annotation_time and annotation_time <= x[-1]:
     for a in ax:
-        a.legend()
-        a.grid(True)
-        a.set_ylabel("Hodnota")
-    ax[2].set_xlabel("Čas [ms]")
-    st.pyplot(fig)
+        a.axvline(annotation_time, color='red', linestyle='--', alpha=0.5)
+        a.text(annotation_time, a.get_ylim()[1]*0.8, '5τ', color='red')
 
-with tabs[1]:
-    if type_choice == "AC" and zataz_type:
-        t_slider = st.slider("Fázorový čas [ms]", 0.0, float(2*T*1000), step=1.0)
-        t_rad = (t_slider / 1000.0) * omega
-        fig2, ax2 = plt.subplots(figsize=(3.5, 3.5))
-        ax2.arrow(0, 0, cos(t_rad), sin(t_rad), head_width=0.05, color='tab:blue', label="Napätie")
-        ax2.arrow(0, 0, cos(t_rad - phi_calc_rad), sin(t_rad - phi_calc_rad), head_width=0.05, color='tab:orange', label="Prúd")
-        ax2.set_xlim(-1.2, 1.2)
-        ax2.set_ylim(-1.2, 1.2)
-        ax2.set_aspect('equal')
-        ax2.grid(True)
-        ax2.legend()
-        st.pyplot(fig2)
+for a in ax:
+    a.legend()
+    a.grid(True)
+    a.set_ylabel("Hodnota")
+ax[2].set_xlabel("Čas [s]")
+st.subheader("📊 Priebeh veličín v čase")
+st.pyplot(fig)
 
-with tabs[2]:
-    st.markdown("""
-    ### 📄 Výpočtové kroky
-
-    **1. Výpočet reaktancií:**  
-    ω = 2πf = {omega:.2f} rad/s  
-    XL = ωL = {XL:.2f} Ω  
-    XC = 1 / (ωC) = {XC:.2f} Ω  
-
-    **2. Impedancia:**  
-    Z = R + j(XL - XC) = {R:.2f} + j({(XL - XC):.2f}) Ω  
-    |Z| = {Z_abs:.2f} Ω  
-    φ = arctg((XL - XC)/R) = {phi_calc_deg:.2f}°  
-
-    **3. Prúdy a napätia:**  
-    Umax = Uef × √2 = {Umax:.2f} V  
-    Imax = Ief × √2 = {Imax:.2f} A  
-
-    **4. Výkony:**  
-    S = Uef × Ief = {S:.2f} VA  
-    P = S × cosφ = {P:.2f} W  
-    Q = √(S² - P²) = {Q:.2f} VAR  
-    ⟨P(t)⟩ = {vykon_avg:.2f} W
-    """)
-
-# PDF export s bezpečným kódovaním
-
-def export_pdf():
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="Protokol AC/DC obvodu", ln=True, align="C")
-    pdf.ln(10)
-    pdf.set_font("Arial", size=10)
-    text = f"""
-Režim: {type_choice}
-Záťaž: {zataz_type}
-Z = {Z_abs:.2f} Ω
-XL = {XL:.2f} Ω
-XC = {XC:.2f} Ω
-φ = {phi_calc_deg:.2f}°
-cosφ = {cos_phi:.3f}
-
-Uef = {Uef:.2f} V
-Ief = {Ief:.2f} A
-Umax = {Umax:.2f} V
-Imax = {Imax:.2f} A
-
-Výkony:
-S = {S:.2f} VA
-P = {P:.2f} W
-Q = {Q:.2f} VAR
-⟨P⟩ = {vykon_avg:.2f} W
-"""
-    for line in text.strip().split('\n'):
-        pdf.multi_cell(0, 10, txt=line.encode('latin-1', errors='replace').decode('latin-1'))
-    return io.BytesIO(pdf.output(dest='S').encode('latin-1', errors='replace'))
-
-st.subheader("📤 Export")
-df = pd.DataFrame({
-    "čas [s]": x,
-    "napätie [V]": napatie,
-    "prúd [A]": prud,
-    "výkon [W]": vykon
-})
-csv = df.to_csv(index=False).encode('utf-8')
-st.download_button("⬇️ CSV Export", csv, file_name="vysledky.csv", mime="text/csv")
-pdf_bytes = export_pdf()
-st.download_button("⬇️ PDF Protokol", data=pdf_bytes, file_name="protokol_obvodu.pdf", mime="application/pdf")
+# Popis prechodového deja
+if type_choice == "DC - Prechodový dej (R-C / R-L)":
+    if C > 0:
+        st.info("Kondenzátor sa nabíja exponenciálne podľa vzťahu: \n **U(t) = U(1 - e^(-t/RC))**. \n Prúd na začiatku prudko klesá, až dosiahne nulu v ustálenom stave.")
+    elif L > 0:
+        st.info("Cievka spôsobí oneskorený nábeh prúdu: \n **I(t) = (U/R)(1 - e^(-Rt/L))**. \n Prúd stúpa od nuly, až sa ustáli. Napätie na cievke počas prechodu klesá.")
 st.markdown("---")
 st.markdown("👨Autor: Adrian Mahdon")
