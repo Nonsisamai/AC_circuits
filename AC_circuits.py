@@ -79,7 +79,7 @@ st.graphviz_chart(g)
 if type_choice == "DC - Prechodový dej (R-C / R-L)":
     st.sidebar.markdown("---")
     st.sidebar.markdown("⏱️ **Čas simulácie prechodu**")
-    t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=0.01, step=0.1)
+    t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=0.0000001, step=0.1)
     t_points = st.sidebar.number_input("Počet bodov", value=1000, step=100)
 else:
     t_max = 0.1
@@ -155,11 +155,11 @@ vykon_avg = np.mean(vykon)
 
 # Doplnková informácia o τ (časová konštanta)
 if type_choice.startswith("DC") and tau is not None:
-    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
+    st.markdown(f"**Časová konštanta τ =** {tau:.9f} s")
 
 # Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
 if annotation_time:
-    st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
+    st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.9f} s (≈ 5τ)")
 
 # Graf s anotáciou
 fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
@@ -191,13 +191,13 @@ if type_choice == "DC - Prechodový dej (R-C / R-L)":
 # Výpočtové výsledky
 st.subheader("🧮 Výpočty")
 st.markdown(f"""
-- **Zdanlivý výkon (S):** {S:.2f} VA  
-- **Činný výkon (P):** {P:.2f} W  
-- **Jalový výkon (Q):** {Q:.2f} VAR  
-- **Fázový posun φ:** {phi_calc_deg:.2f}°  
-- **Účinník (cosφ):** {cos_phi:.3f}  
-- **Uef / Ief:** {Uef:.2f} V / {Ief:.2f} A  
-- **Umax / Imax:** {Umax:.2f} V / {Imax:.2f} A
+- **Zdanlivý výkon (S):** {S:.9f} VA  
+- **Činný výkon (P):** {P:.9f} W  
+- **Jalový výkon (Q):** {Q:.9f} VAR  
+- **Fázový posun φ:** {phi_calc_deg:.9f}°  
+- **Účinník (cosφ):** {cos_phi:.9f}  
+- **Uef / Ief:** {Uef:.2f} V / {Ief:.9f} A  
+- **Umax / Imax:** {Umax:.2f} V / {Imax:.9f} A
 """)
 
 st.markdown("---")
