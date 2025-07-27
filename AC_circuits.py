@@ -45,6 +45,26 @@ I_in = st.sidebar.number_input("Prúd [A]", value=5.0, step=0.1)
 f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0, step=1.0) if type_choice == "AC" else 0.0
 phi_manual = st.sidebar.number_input("Fázový posun φ [°] (ak je známy)", value=0.0 if type_choice != "AC" else 30.0)
 phi_manual_rad = radians(phi_manual)
+# Interaktívna schéma
+st.subheader("🔧 Schéma zapojenia")
+g = graphviz.Digraph()
+g.node("V", "Zdroj")
+last = "V"
+if R > 0:
+    g.node("R", "R")
+    g.edge(last, "R")
+    last = "R"
+if L > 0:
+    g.node("L", "L")
+    g.edge(last, "L")
+    last = "L"
+if C > 0:
+    g.node("C", "C")
+    g.edge(last, "C")
+    last = "C"
+g.edge(last, "Z")
+g.node("Z", "Uzemnenie")
+st.graphviz_chart(g)
 
 # Súčiastky
 st.sidebar.markdown("---")
