@@ -82,12 +82,12 @@ else:
 
 S = Uef * Ief
 P = S * cos_phi
-Q = sqrt(abs(S ** 2 - P ** 2)) if type_choice == "AC" else 0.0
+Q = sqrt(abs(S**2 - P**2)) if type_choice == "AC" else 0.0
 
 # Časová os
 if type_choice == "AC":
     T = 1 / f if f > 0 else 1.0
-    x = np.linspace(0, 2 * T, 1000)
+    x = np.linspace(0, 2*T, 1000)
     napatie = Umax * np.sin(omega * x)
     prud = Imax * np.sin(omega * x - phi_calc_rad)
 elif type_choice == "DC":
@@ -123,7 +123,7 @@ st.markdown(f"""
 - **⟨P(t)⟩ =** {vykon_avg:.2f} W
 """)
 
-# Schéma
+# Interaktívna schéma
 st.subheader("🔧 Schéma zapojenia")
 g = graphviz.Digraph()
 g.node("V", "Zdroj")
@@ -144,28 +144,70 @@ g.edge(last, "Z")
 g.node("Z", "Uzemnenie")
 st.graphviz_chart(g)
 
-# Grafy
-st.subheader("📈 Časové priebehy")
-fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-ax[0].plot(x * 1000, napatie, label='Napätie [V]', color='tab:blue')
-ax[1].plot(x * 1000, prud, label='Prúd [A]', color='tab:orange')
-ax[2].plot(x * 1000, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
-for a in ax:
-    a.legend()
-    a.grid(True)
-    a.set_ylabel("Hodnota")
-ax[2].set_xlabel("Čas [ms]")
-st.pyplot(fig)
+# Časové priebehy
+tabs = st.tabs(["📊 Priebeh veličín", "🧭 Fázorový diagram", "📄 Výpočtové kroky"])
 
+with tabs[0]:
+    fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+    ax[0].plot(x * 1000, napatie, label='Napätie [V]', color='tab:blue')
+    ax[1].plot(x * 1000, prud, label='Prúd [A]', color='tab:orange')
+    ax[2].plot(x * 1000, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
+    for a in ax:
+        a.legend()
+        a.grid(True)
+        a.set_ylabel("Hodnota")
+    ax[2].set_xlabel("Čas [ms]")
+    st.pyplot(fig)
 
-# PDF export
+with tabs[1]:
+    if type_choice == "AC" and zataz_type:
+        t_slider = st.slider("Fázorový čas [ms]", 0.0, float(2*T*1000), step=1.0)
+        t_rad = (t_slider / 1000.0) * omega
+        fig2, ax2 = plt.subplots(figsize=(3.5, 3.5))
+        ax2.arrow(0, 0, cos(t_rad), sin(t_rad), head_width=0.05, color='tab:blue', label="Napätie")
+        ax2.arrow(0, 0, cos(t_rad - phi_calc_rad), sin(t_rad - phi_calc_rad), head_width=0.05, color='tab:orange', label="Prúd")
+        ax2.set_xlim(-1.2, 1.2)
+        ax2.set_ylim(-1.2, 1.2)
+        ax2.set_aspect('equal')
+        ax2.grid(True)
+        ax2.legend()
+        st.pyplot(fig2)
+
+with tabs[2]:
+    st.markdown("""
+    ### 📄 Výpočtové kroky
+
+    **1. Výpočet reaktancií:**  
+    ω = 2πf = {omega:.2f} rad/s  
+    XL = ωL = {XL:.2f} Ω  
+    XC = 1 / (ωC) = {XC:.2f} Ω  
+
+    **2. Impedancia:**  
+    Z = R + j(XL - XC) = {R:.2f} + j({(XL - XC):.2f}) Ω  
+    |Z| = {Z_abs:.2f} Ω  
+    φ = arctg((XL - XC)/R) = {phi_calc_deg:.2f}°  
+
+    **3. Prúdy a napätia:**  
+    Umax = Uef × √2 = {Umax:.2f} V  
+    Imax = Ief × √2 = {Imax:.2f} A  
+
+    **4. Výkony:**  
+    S = Uef × Ief = {S:.2f} VA  
+    P = S × cosφ = {P:.2f} W  
+    Q = √(S² - P²) = {Q:.2f} VAR  
+    ⟨P(t)⟩ = {vykon_avg:.2f} W
+    """)
+
+# PDF export s bezpečným kódovaním
+
 def export_pdf():
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt="Protokol AC/DC obvodu", ln=True, align="C")
     pdf.ln(10)
-    pdf.multi_cell(0, 10, txt=f"""
+    pdf.set_font("Arial", size=10)
+    text = f"""
 Režim: {type_choice}
 Záťaž: {zataz_type}
 Z = {Z_abs:.2f} Ω
@@ -184,13 +226,10 @@ S = {S:.2f} VA
 P = {P:.2f} W
 Q = {Q:.2f} VAR
 ⟨P⟩ = {vykon_avg:.2f} W
-
-Výpočty podľa: Z = R + j(XL - XC), S = Uef·Ief, P = S·cosφ
-
-Vytvorené pomocou elektroinžinierskeho nástroja v Streamlit
-    """)
-    return pdf.output(dest='S').encode('latin1')
-
+"""
+    for line in text.strip().split('\n'):
+        pdf.multi_cell(0, 10, txt=line.encode('latin-1', errors='replace').decode('latin-1'))
+    return io.BytesIO(pdf.output(dest='S').encode('latin-1', errors='replace'))
 
 st.subheader("📤 Export")
 df = pd.DataFrame({
