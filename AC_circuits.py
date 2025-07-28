@@ -249,7 +249,8 @@ else:
     st.write(f"🔋 Ustálený výkon: {p[-1]:.4f} W")
     st.write(f"📊 Maximálny výkon počas prechodu: {np.max(p):.2f} W")
 
-vykon_avg = np.mean(p)
+vykon = napatie * prud
+vykon_avg = np.mean(vykon)
 
 # Doplnková informácia o τ (časová konštanta)
 if type_choice.startswith("DC") and tau is not None:
