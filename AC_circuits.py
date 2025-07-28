@@ -48,11 +48,66 @@ phi_manual_rad = radians(phi_manual)
 
 
 # Súčiastky
+# === Súčiastky s jednotkovými násobkami a spätným zobrazením ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("🧩 **Zadanie súčiastok**")
-R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1)
-L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001)
-C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001)
+
+# Mapovanie predpôn na hodnoty
+prefix_dict = {
+    "p": ("piko", 1e-12),
+    "n": ("nano", 1e-9),
+    "µ": ("mikro", 1e-6),
+    "m": ("mili", 1e-3),
+    "": ("", 1),
+    "k": ("kilo", 1e3),
+    "M": ("mega", 1e6),
+    "G": ("giga", 1e9),
+    "T": ("tera", 1e12),
+}
+
+# Invertovaný slovník pre formátovanie
+def find_prefix(val):
+    if val == 0:
+        return "0", ""
+    abs_val = abs(val)
+    for sym, (_, factor) in reversed(prefix_dict.items()):
+        if abs_val >= factor:
+            scaled = val / factor
+            if scaled >= 0.1:
+                return f"{scaled:.3g}", sym
+    return f"{val:.3g}", ""
+
+# Vstup s prefixom
+def vstup_so_skalou(label, jednotka, default_val=0.0):
+    col1, col2 = st.sidebar.columns([2, 1])
+    hodnota = col1.number_input(f"{label} [{jednotka}]", value=default_val, step=0.1, key=label)
+    prefix_list = [f"{sym} ({prefix_dict[sym][0]})" if sym else "(základná)" for sym in prefix_dict]
+    symbol_map = {f"{sym} ({prefix_dict[sym][0]})" if sym else "(základná)": sym for sym in prefix_dict}
+    default_prefix = "(základná)"
+    col2_key = f"{label}_scale"
+    prefix_label = col2.selectbox("×", prefix_list, index=prefix_list.index(default_prefix), key=col2_key)
+    symbol = symbol_map[prefix_label]
+    return hodnota * prefix_dict[symbol][1]
+
+# Zadanie a výpočet R, L, C
+R = vstup_so_skalou("Odpor R", "Ω")
+L = vstup_so_skalou("Indukčnosť L", "H")
+C = vstup_so_skalou("Kapacita C", "F")
+
+# === Zobrazenie spätne formátovaných hodnôt ===
+st.markdown("### 🔍 Zadali ste:")
+r_str, r_prefix = find_prefix(R)
+l_str, l_prefix = find_prefix(L)
+c_str, c_prefix = find_prefix(C)
+
+if R > 0 or L > 0 or C > 0:
+    st.markdown(f"""
+    - **Odpor R:** {r_str} {r_prefix}Ω  
+    - **Indukčnosť L:** {l_str} {l_prefix}H  
+    - **Kapacita C:** {c_str} {c_prefix}F  
+    """)
+else:
+    st.info("Zatiaľ nebola zadaná žiadna súčiastka R, L ani C.")
 
 # Interaktívna schéma
 st.subheader("🔧 Schéma zapojenia")
