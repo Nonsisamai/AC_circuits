@@ -99,7 +99,6 @@ st.markdown("### 🔍 Zadali ste:")
 r_str, r_prefix = find_prefix(R)
 l_str, l_prefix = find_prefix(L)
 c_str, c_prefix = find_prefix(C)
-
 if R > 0 or L > 0 or C > 0:
     st.markdown(f"""
     - **Odpor R:** {r_str} {r_prefix}Ω  
