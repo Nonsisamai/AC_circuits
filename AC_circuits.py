@@ -161,7 +161,7 @@ phi_calc_rad = atan2(Z_complex.imag, Z_complex.real) if Z_abs > 0 else 0.0
 phi_calc_deg = degrees(phi_calc_rad)
 cos_phi = cos(phi_calc_rad) if Z_abs > 0 else 1.0
 
-if input_mode == "Efektívne (RMS)":
+if input_mode == "Efektívne (RMS) >> Efektívna hodnota":
     Uef = U_in
     Ief = I_in
     Umax = Uef * sqrt(2)
