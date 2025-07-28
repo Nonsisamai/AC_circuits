@@ -191,20 +191,7 @@ elif type_choice == "DC":
     i = np.full_like(x, Ief)
     tau = None
 else:
-    """if C > 0 and R > 0:
-        tau = R * C
-        napatie = Uef * (1 - np.exp(-x / tau))
-        prud = (Uef / R) * np.exp(-x / tau)
-        annotation_time = 5 * tau
-    elif L > 0 and R > 0:
-        tau = L / R
-        napatie = np.full_like(x, Uef)
-        prud = (Uef / R) * (1 - np.exp(-x / tau))
-        annotation_time = 5 * tau
-    else:
-        napatie = np.zeros_like(x)
-        prud = np.zeros_like(x)
-        tau = None """
+# tu bol original volby suciastok RLC ,nahrada za nizsie
     # DC - prechodový jav cez R, RL, RC, RLC obvod
     # Odvodíme správnu časovú konštantu a priebeh podľa súčiastok
     has_L = L > 0
@@ -217,6 +204,7 @@ else:
         t = np.linspace(0, t_max, t_points)
         i = (U_in / R) * (1 - np.exp(-t / tau)) if tau != 0 else np.full_like(t, U_in / R)
         u = np.full_like(t, U_in)
+        annotation_time = 5 * tau
     elif has_C and not has_L:
         # RC obvod – nabíjanie kondenzátora
         tau = R * C
@@ -224,6 +212,7 @@ else:
         t = np.linspace(0, t_max, t_points)
         u = U_in * (1 - np.exp(-t / tau)) if tau != 0 else np.full_like(t, U_in)
         i = (U_in / R) * np.exp(-t / tau) if tau != 0 else np.zeros_like(t)
+        annotation_time = 5 * tau
     elif has_C and has_L:
         # RLC obvod – podtĺmený predpoklad
         tau = 2 * L / R if R != 0 else 0.0
@@ -235,6 +224,7 @@ else:
         A = U_in / (L * omega_d) if omega_d != 0 else 0
         i = A * np.exp(-damping * t) * np.sin(omega_d * t) if omega_d != 0 else np.zeros_like(t)
         u = np.full_like(t, U_in)
+        annotation_time = 5 * tau
     else:
         # Čistý rezistor – okamžitý ustálený stav
         t = np.linspace(0, 1, t_points)
