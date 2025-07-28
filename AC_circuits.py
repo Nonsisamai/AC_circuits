@@ -199,8 +199,8 @@ else:
 
     if has_L and not has_C:
         # RL obvod
-        tau = L / R if R != 0 else 0.0
-        t_max = 5 * tau if tau != 0 else 1
+        tau = L / R #if R != 0 else 0.0
+        t_max = 5 * tau #if tau != 0 else 1
         t = np.linspace(0, t_max, t_points)
         i = (U_in / R) * (1 - np.exp(-t / tau)) if tau != 0 else np.full_like(t, U_in / R)
         u = np.full_like(t, U_in)
@@ -208,18 +208,18 @@ else:
     elif has_C and not has_L:
         # RC obvod – nabíjanie kondenzátora
         tau = R * C
-        t_max = 5 * tau if tau != 0 else 1
+        t_max = 5 * tau #if tau != 0 else 1
         t = np.linspace(0, t_max, t_points)
         u = U_in * (1 - np.exp(-t / tau)) if tau != 0 else np.full_like(t, U_in)
         i = (U_in / R) * np.exp(-t / tau) if tau != 0 else np.zeros_like(t)
         annotation_time = 5 * tau
     elif has_C and has_L:
         # RLC obvod – podtĺmený predpoklad
-        tau = 2 * L / R if R != 0 else 0.0
+        tau = 2 * L / R #if R != 0 else 0.0
         omega_0 = 1 / np.sqrt(L * C)
         damping = R / (2 * L)
         omega_d = np.sqrt(omega_0 ** 2 - damping ** 2) if omega_0 > damping else 0
-        t_max = 5 * tau if tau != 0 else 1
+        t_max = 5 * tau #if tau != 0 else 1
         t = np.linspace(0, t_max, t_points)
         A = U_in / (L * omega_d) if omega_d != 0 else 0
         i = A * np.exp(-damping * t) * np.sin(omega_d * t) if omega_d != 0 else np.zeros_like(t)
