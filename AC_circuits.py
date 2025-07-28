@@ -10,7 +10,12 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import math
 from dataclasses import dataclass
+# Vypocet prudu
+if Z_total == 0:
+    st.error("Celková impedancia obvodu je nulová. Skontroluj zapojenie alebo chýbajúce komponenty.")
+    st.stop()
 
+I = U_m / Z_total
 # -- Komponenty
 @dataclass
 class Component:
@@ -68,8 +73,14 @@ st.pyplot(fig)
 st.subheader("🔍 Výpočty a analýza")
 f = st.number_input("Frekvencia f [Hz]", value=50.0)
 omega = 2 * np.pi * f
+# Vypocet prudu
+
+
 
 Z_total = 0 + 0j
+if Z_total == 0:
+    st.error("Celková impedancia obvodu je nulová. Skontroluj zapojenie alebo chýbajúce komponenty.")
+    st.stop()
 for c in components:
     if c.type == "Rezistor":
         Z_total += c.value
