@@ -13,7 +13,7 @@ from math import cos, sin, radians, degrees, pi, sqrt, atan2, exp
 
 st.set_page_config(page_title="AC/DC Circuit Designer", layout="wide")
 
-st.title("⚡ AC/DC Circuit Designer & Simulator")
+st.title("⚡ AC/DC Circuit Designer & Simulator ")
 st.markdown("""
 Elektroinžinierstvo: **Komplexný nástroj pre návrh, simuláciu a analýzu obvodov**.
 - Navrhni obvod interaktívne (Canvas)
