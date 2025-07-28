@@ -175,7 +175,112 @@ else:
 S = Uef * Ief
 P = S * cos_phi
 Q = sqrt(abs(S**2 - P**2)) if type_choice == "AC" else 0.0
+#-----------------------------------------------------------------
+circuit_type = st.selectbox("Typ obvodu", ["DC - prechodový jav", "AC - ustálený stav"])
 
+# Vstupné hodnoty
+U_input = st.number_input("Napätie [V]", value=230.0)
+I_input = st.number_input("Prúd [A]", value=4.0)
+
+# Fázový posun len pre AC
+phase_shift = 0
+use_rms = False
+if "AC" in circuit_type:
+    phase_shift = st.slider("Fázový posun [°]", min_value=0, max_value=180, value=0)
+    use_rms = st.checkbox("Použiť efektívne hodnoty (RMS)", value=True)
+
+# Súčasti obvodu
+R = st.number_input("Odpor R [Ω]", value=90.1)
+L = st.number_input("Indukčnosť L [H]", value=0.7)
+C = st.number_input("Kapacita C [F]", value=0.0)
+
+# Časová os
+samples = 1000
+periods = 5
+
+# Výpočty
+if "AC" in circuit_type:
+    f = 50  # Hz
+    w = 2 * np.pi * f
+    t = np.linspace(0, periods / f, samples)
+    U_peak = U_input * np.sqrt(2) if use_rms else U_input
+    I_peak = I_input * np.sqrt(2) if use_rms else I_input
+    phase_rad = np.deg2rad(phase_shift)
+
+    u = U_peak * np.sin(w * t)
+    i = I_peak * np.sin(w * t - phase_rad)
+    p = u * i
+
+    st.subheader("Výpočty pre AC")
+    st.write(f"⚡ Maximálne napätie: {U_peak:.2f} V")
+    st.write(f"🔌 Maximálny prúd: {I_peak:.2f} A")
+    st.write(f"⏱ Fázový posun: {phase_shift}°")
+    st.write(f"🔋 Maximálny okamžitý výkon: {np.max(p):.2f} W")
+    st.write(f"📉 Priemerný výkon: {np.mean(p):.2f} W")
+
+else:
+    # DC - prechodový jav cez R, RL, RC, RLC obvod
+    # Odvodíme správnu časovú konštantu a priebeh podľa súčiastok
+    has_L = L > 0
+    has_C = C > 0
+
+    if has_L and not has_C:
+        # RL obvod
+        tau = L / R if R != 0 else 0.0
+        t_max = 5 * tau if tau != 0 else 1
+        t = np.linspace(0, t_max, samples)
+        i = (U_input / R) * (1 - np.exp(-t / tau)) if tau != 0 else np.full_like(t, U_input / R)
+        u = np.full_like(t, U_input)
+    elif has_C and not has_L:
+        # RC obvod – nabíjanie kondenzátora
+        tau = R * C
+        t_max = 5 * tau if tau != 0 else 1
+        t = np.linspace(0, t_max, samples)
+        u = U_input * (1 - np.exp(-t / tau)) if tau != 0 else np.full_like(t, U_input)
+        i = (U_input / R) * np.exp(-t / tau) if tau != 0 else np.zeros_like(t)
+    elif has_C and has_L:
+        # RLC obvod – podtĺmený predpoklad
+        tau = 2 * L / R if R != 0 else 0.0
+        omega_0 = 1 / np.sqrt(L * C)
+        damping = R / (2 * L)
+        omega_d = np.sqrt(omega_0 ** 2 - damping ** 2) if omega_0 > damping else 0
+        t_max = 5 * tau if tau != 0 else 1
+        t = np.linspace(0, t_max, samples)
+        A = U_input / (L * omega_d) if omega_d != 0 else 0
+        i = A * np.exp(-damping * t) * np.sin(omega_d * t) if omega_d != 0 else np.zeros_like(t)
+        u = np.full_like(t, U_input)
+    else:
+        # Čistý rezistor – okamžitý ustálený stav
+        t = np.linspace(0, 1, samples)
+        i = np.full_like(t, U_input / R)
+        u = np.full_like(t, U_input)
+
+    p = u * i
+
+    st.subheader("Výpočty pre DC prechodový jav")
+    st.write(f"🧮 Časová konštanta (τ): {tau:.4f} s")
+    st.write(f"📈 Ustálený prúd (posledný bod): {i[-1]:.4f} A")
+    st.write(f"🔋 Ustálený výkon: {p[-1]:.4f} W")
+    st.write(f"📊 Maximálny výkon počas prechodu: {np.max(p):.2f} W")
+
+# Grafy
+fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+
+ax[0].plot(t, u, label="Napätie [V]", color="orange")
+ax[0].legend()
+ax[0].grid(True)
+
+ax[1].plot(t, i, label="Prúd [A]", color="blue")
+ax[1].legend()
+ax[1].grid(True)
+
+ax[2].plot(t, p, label="Výkon [W]", color="red")
+ax[2].legend()
+ax[2].grid(True)
+ax[2].set_xlabel("Čas [s]")
+
+st.pyplot(fig)
+#----------------------------------------
 # Časová os a simulácie
 x = np.linspace(0, t_max, int(t_points))
 annotation_time = None
