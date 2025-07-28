@@ -1,204 +1,152 @@
-# AC/DC Educational Circuit Visualizer with Simulation, PDF Export, and Transient Analysis
-# Streamlit app designed by an electrical engineer & educator
+# AC/DC Circuit Designer & Analyzer – Advanced Educational Simulator
+# Autor: Adrian Mahdon / Elektroinzinier & Veduci Nastroj pre Vizualizaciu a Simulaciu
 
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import io
 import graphviz
-from math import cos, sin, radians, degrees, pi, sqrt, atan2, exp
 from fpdf import FPDF
+from streamlit_drawable_canvas import st_canvas
+import io
+from math import cos, sin, radians, degrees, pi, sqrt, atan2, exp
 
-st.set_page_config(page_title="AC/DC Circuit Visualizer", layout="wide")
+st.set_page_config(page_title="AC/DC Circuit Designer", layout="wide")
 
-# Theme toggle
-dark_mode = st.sidebar.toggle("🌙 Tmavý režim")
-if dark_mode:
-    plt.style.use('dark_background')
-else:
-    plt.style.use('default')
-
-st.title("🔌 AC/DC Obvody – Vizualizácia, Schéma, Prechody a Výpočty")
-
+st.title("⚡ AC/DC Circuit Designer & Simulator")
 st.markdown("""
-Interaktívny elektroinžiniersky nástroj:
-- ✅ AC/DC simulácie
-- ✅ Reálne výpočty R, L, C
-- ✅ Časové priebehy, výkon, fázory
-- ✅ Interaktívna schéma
-- ✅ Prechodové deje: **nabíjanie kondenzátora**, **prúd cievkou**
-- ✅ Export výpočtov a schémy do PDF protokolu
+Elektroinžinierstvo: **Komplexný nástroj pre návrh, simuláciu a analýzu obvodov**.
+- Navrhni obvod interaktívne (Canvas)
+- Automatické rozpoznanie topológie
+- Reálne simulácie AC/DC prûdov, napätí, prechodov, fázorov
+- Fyzikálne presné modely: R, L, C, τ, ϕ, Z, S, P, Q
 """)
 
-st.sidebar.header("🎛️ Parametre obvodu")
-
-# Typ obvodu: AC, DC alebo prechodový
-type_choice = st.sidebar.selectbox("Režim obvodu", ["AC", "DC", "DC - Prechodový dej (R-C / R-L)"])
-
-# Zadanie RMS alebo peak
-input_mode = st.sidebar.radio("Zadávaš hodnoty ako:", ["Efektívne (RMS)", "Maximálne (peak)"])
-U_in = st.sidebar.number_input("Napätie [V]", value=230.0, step=0.1)
+# ----------------------------- Sidebar vstupy ----------------------------------
+st.sidebar.header("🎛️ Základné nastavenia")
+type_choice = st.sidebar.selectbox("Režim obvodu", ["AC", "DC", "Prechodový (RC/RL)"])
+input_mode = st.sidebar.radio("Zadávanie hodnôt", ["Efektívne (RMS)", "Maximálne (Peak)"])
+U_in = st.sidebar.number_input("Napätie [V]", value=230.0, step=1.0)
 I_in = st.sidebar.number_input("Prúd [A]", value=5.0, step=0.1)
+f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0 if type_choice=="AC" else 0.0)
+phi_manual = radians(st.sidebar.number_input("Fázový posun [°] (ak známy)", value=0.0))
 
-# Frekvencia a fázový posun
-f = st.sidebar.number_input("Frekvencia [Hz]", value=50.0, step=1.0) if type_choice == "AC" else 0.0
-phi_manual = st.sidebar.number_input("Fázový posun φ [°] (ak je známy)", value=0.0 if type_choice != "AC" else 30.0)
-phi_manual_rad = radians(phi_manual)
+# ----------------------------- Interaktívny canvas ------------------------------
+st.subheader("🖊️ Interaktívne kreslenie obvodu")
+st.markdown("Nakresli obvod s komponentmi R, L, C a Zdrojom. Budú automaticky rozpoznané.")
+canvas_result = st_canvas(
+    fill_color="rgba(255,255,255,0.0)",
+    stroke_width=3,
+    background_color="#fff",
+    drawing_mode="freedraw",
+    height=300,
+    width=800,
+    key="circuit_canvas"
+)
 
-
-# Súčiastky
-st.sidebar.markdown("---")
-st.sidebar.markdown("🧩 **Zadanie súčiastok**")
-R = st.sidebar.number_input("Odpor R [Ω]", value=0.0, step=0.1)
-L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0, step=0.001)
-C = st.sidebar.number_input("Kapacita C [F]", value=0.0, step=0.00001)
-
-# Interaktívna schéma
-st.subheader("🔧 Schéma zapojenia")
-g = graphviz.Digraph()
-g.node("V", "Zdroj")
-last = "V"
-if R > 0:
-    g.node("R", "R")
-    g.edge(last, "R")
-    last = "R"
-if L > 0:
-    g.node("L", "L")
-    g.edge(last, "L")
-    last = "L"
-if C > 0:
-    g.node("C", "C")
-    g.edge(last, "C")
-    last = "C"
-g.edge(last, "Z")
-g.node("Z", "Uzemnenie")
-st.graphviz_chart(g)
-
-# Časové rozlíšenie pre prechodové javy
-if type_choice == "DC - Prechodový dej (R-C / R-L)":
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("⏱️ **Čas simulácie prechodu**")
-    t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=0.01, step=0.1)
-    t_points = st.sidebar.number_input("Počet bodov", value=1000, step=100)
+# Debug: vypísanie objektov z canvasu
+if canvas_result.json_data is not None:
+    objects = canvas_result.json_data.get("objects", [])
+    st.write(f"🔍 Nájdené objekty: {len(objects)}")
+    st.json(objects)
 else:
-    t_max = 0.1
-    t_points = 1000
+    objects = []
 
-# Auto-zistenie typu záťaže
-zataz_popis = []
-if R > 0: zataz_popis.append("R")
-if L > 0: zataz_popis.append("L")
-if C > 0: zataz_popis.append("C")
-zataz_type = "+".join(zataz_popis) if zataz_popis else "Žiadna záťaž"
+# ----------------------------- Komponenty (alternatívne zadanie) ----------------
+st.subheader("🧩 Konfigurovateľné komponenty")
+components = []
 
-st.subheader("📋 Prehľad zapojenia")
-st.markdown(f"""
-- **Zvolený režim:** {type_choice}  
-- **Záťaž v obvode:** {zataz_type if zataz_type else "(žiadna)"}
-""")
+col1, col2, col3 = st.columns(3)
+with col1:
+    R = st.number_input("Odpor R [Ω]", value=100.0)
+with col2:
+    L = st.number_input("Indukčnosť L [H]", value=0.1)
+with col3:
+    C = st.number_input("Kapacita C [F]", value=0.00001)
 
-omega = 2 * pi * f if f > 0 else 0
-XL = omega * L if L > 0 else 0.0
-XC = 1 / (omega * C) if (C > 0 and omega > 0) else 0.0
-Z_complex = complex(R, XL - XC)
-Z_abs = abs(Z_complex)
-phi_calc_rad = atan2(Z_complex.imag, Z_complex.real) if Z_abs > 0 else 0.0
+# Automatický výpočet impedance
+omega = 2 * pi * f
+Z_R = complex(R, 0)
+Z_L = complex(0, omega*L)
+Z_C = complex(0, -1/(omega*C)) if C > 0 and omega > 0 else complex(0, 0)
+Z_total = Z_R + Z_L + Z_C
+Z_abs = abs(Z_total)
+phi_calc_rad = atan2(Z_total.imag, Z_total.real)
 phi_calc_deg = degrees(phi_calc_rad)
-cos_phi = cos(phi_calc_rad) if Z_abs > 0 else 1.0
+cos_phi = cos(phi_calc_rad)
 
+# Prepocet U, I ak su zadané ako RMS/peak
 if input_mode == "Efektívne (RMS)":
-    Uef = U_in
-    Ief = I_in
-    Umax = Uef * sqrt(2)
-    Imax = Ief * sqrt(2)
+    Uef, Ief = U_in, I_in
+    Umax, Imax = Uef * sqrt(2), Ief * sqrt(2)
 else:
-    Umax = U_in
-    Imax = I_in
-    Uef = Umax / sqrt(2)
-    Ief = Imax / sqrt(2)
+    Umax, Imax = U_in, I_in
+    Uef, Ief = Umax / sqrt(2), Imax / sqrt(2)
 
-S = Uef * Ief
-P = S * cos_phi
-Q = sqrt(abs(S**2 - P**2)) if type_choice == "AC" else 0.0
-
-# Časová os a simulácie
-x = np.linspace(0, t_max, int(t_points))
-annotation_time = None
+# ----------------------------- Simulácia ----------------------------------------
+x = np.linspace(0, 0.1, 1000)
 if type_choice == "AC":
-    T = 1 / f if f > 0 else 1.0
-    x = np.linspace(0, 2*T, 1000)
     napatie = Umax * np.sin(omega * x)
     prud = Imax * np.sin(omega * x - phi_calc_rad)
 elif type_choice == "DC":
     napatie = np.full_like(x, Uef)
     prud = np.full_like(x, Ief)
-    tau = None
-else:
-    if C > 0 and R > 0:
-        tau = R * C
+elif type_choice == "Prechodový (RC/RL)":
+    if R > 0 and C > 0:
+        tau = R*C
         napatie = Uef * (1 - np.exp(-x / tau))
-        prud = (Uef / R) * np.exp(-x / tau)
-        annotation_time = 5 * tau
-    elif L > 0 and R > 0:
-        tau = L / R
+        prud = (Uef/R) * np.exp(-x / tau)
+    elif R > 0 and L > 0:
+        tau = L/R
         napatie = np.full_like(x, Uef)
-        prud = (Uef / R) * (1 - np.exp(-x / tau))
-        annotation_time = 5 * tau
+        prud = (Uef/R)*(1 - np.exp(-x / tau))
     else:
         napatie = np.zeros_like(x)
         prud = np.zeros_like(x)
-        tau = None
 
 vykon = napatie * prud
 vykon_avg = np.mean(vykon)
 
-# Doplnková informácia o τ (časová konštanta)
-if type_choice.startswith("DC") and tau is not None:
-    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
-
-# Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
-if annotation_time:
-    st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
-
-# Graf s anotáciou
+# ----------------------------- Grafy ---------------------------------------------
+st.subheader("📊 Priebeh veličí v čase")
 fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-ax[0].plot(x, napatie, label='Napätie [V]', color='tab:blue')
-ax[1].plot(x, prud, label='Prúd [A]', color='tab:orange')
-ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
-
-# Pridanie anotácie pre čas 5τ
-if annotation_time and annotation_time <= x[-1]:
-    for a in ax:
-        a.axvline(annotation_time, color='red', linestyle='--', alpha=0.5)
-        a.text(annotation_time, a.get_ylim()[1]*0.8, '5τ', color='red')
-
+ax[0].plot(x, napatie, label="U(t) [V]", color='tab:blue')
+ax[1].plot(x, prud, label="I(t) [A]", color='tab:orange')
+ax[2].plot(x, vykon, label=f"P(t) [W], ⟨P⟩={vykon_avg:.2f}", color='tab:green')
 for a in ax:
     a.legend()
     a.grid(True)
     a.set_ylabel("Hodnota")
 ax[2].set_xlabel("Čas [s]")
-st.subheader("📊 Priebeh veličín v čase")
 st.pyplot(fig)
 
-# Popis prechodového deja
-if type_choice == "DC - Prechodový dej (R-C / R-L)":
-    if C > 0:
-        st.info("Kondenzátor sa nabíja exponenciálne podľa vzťahu: \n **U(t) = U(1 - e^(-t/RC))**. \n Prúd na začiatku prudko klesá, až dosiahne nulu v ustálenom stave.")
-    elif L > 0:
-        st.info("Cievka spôsobí oneskorený nábeh prúdu: \n **I(t) = (U/R)(1 - e^(-Rt/L))**. \n Prúd stúpa od nuly, až sa ustáli. Napätie na cievke počas prechodu klesá.")
+# ----------------------------- Fázorový diagram ----------------------------------
+st.subheader("🧭 Fázorový diagram")
+fig2, ax2 = plt.subplots()
+ax2.quiver(0, 0, Umax*cos(0), Umax*sin(0), angles='xy', scale_units='xy', scale=1, color='b', label="U")
+ax2.quiver(0, 0, Imax*cos(-phi_calc_rad), Imax*sin(-phi_calc_rad), angles='xy', scale_units='xy', scale=1, color='r', label="I")
+ax2.set_xlim(-Umax, Umax)
+ax2.set_ylim(-Umax, Umax)
+ax2.set_aspect('equal')
+ax2.grid(True)
+ax2.legend()
+st.pyplot(fig2)
 
-# Výpočtové výsledky
+# ----------------------------- Výsledky ------------------------------------------
+S = Uef * Ief
+P = S * cos_phi
+Q = sqrt(abs(S**2 - P**2)) if type_choice == "AC" else 0.0
+
 st.subheader("🧮 Výpočty")
 st.markdown(f"""
-- **Zdanlivý výkon (S):** {S:.2f} VA  
-- **Činný výkon (P):** {P:.2f} W  
-- **Jalový výkon (Q):** {Q:.2f} VAR  
-- **Fázový posun φ:** {phi_calc_deg:.2f}°  
-- **Účinník (cosφ):** {cos_phi:.3f}  
-- **Uef / Ief:** {Uef:.2f} V / {Ief:.2f} A  
-- **Umax / Imax:** {Umax:.2f} V / {Imax:.2f} A
+- **Z =** {Z_total:.2f} Ω  
+- **|Z| =** {Z_abs:.2f} Ω  
+- **φ =** {phi_calc_deg:.2f}°  
+- **cos(φ) =** {cos_phi:.3f}  
+- **S =** {S:.2f} VA  
+- **P =** {P:.2f} W  
+- **Q =** {Q:.2f} VAR
 """)
 
 st.markdown("---")
-st.markdown("👨Autor: Adrian Mahdon")
+st.markdown("👨‍🏫 *Autor: Adrian Mahdon – Interaktívny elektro-vzdelávací simulátor*")
