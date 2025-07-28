@@ -11,11 +11,7 @@ import networkx as nx
 import math
 from dataclasses import dataclass
 # Vypocet prudu
-if Z_total == 0:
-    st.error("Celková impedancia obvodu je nulová. Skontroluj zapojenie alebo chýbajúce komponenty.")
-    st.stop()
 
-I = U_m / Z_total
 # -- Komponenty
 @dataclass
 class Component:
