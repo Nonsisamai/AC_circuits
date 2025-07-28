@@ -184,11 +184,11 @@ annotation_time = None
 if type_choice == "AC":
     T = 1 / f if f > 0 else 1.0
     x = np.linspace(0, 2*T, 1000)
-    napatie = Umax * np.sin(omega * x)
-    prud = Imax * np.sin(omega * x - phi_calc_rad)
+    u = Umax * np.sin(omega * x)
+    i = Imax * np.sin(omega * x - phi_calc_rad)
 elif type_choice == "DC":
-    napatie = np.full_like(x, Uef)
-    prud = np.full_like(x, Ief)
+    u = np.full_like(x, Uef)
+    i = np.full_like(x, Ief)
     tau = None
 else:
     """if C > 0 and R > 0:
@@ -249,7 +249,7 @@ else:
     st.write(f"🔋 Ustálený výkon: {p[-1]:.4f} W")
     st.write(f"📊 Maximálny výkon počas prechodu: {np.max(p):.2f} W")
 
-vykon = napatie * prud
+vykon = u * i
 vykon_avg = np.mean(vykon)
 
 # Doplnková informácia o τ (časová konštanta)
@@ -262,8 +262,8 @@ if annotation_time:
 
 # Graf s anotáciou
 fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-ax[0].plot(x, napatie, label='Napätie [V]', color='tab:blue')
-ax[1].plot(x, prud, label='Prúd [A]', color='tab:orange')
+ax[0].plot(x, u, label='Napätie [V]', color='tab:blue')
+ax[1].plot(x, i, label='Prúd [A]', color='tab:orange')
 ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
 
 # Pridanie anotácie pre čas 5τ
