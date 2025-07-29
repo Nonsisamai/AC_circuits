@@ -192,134 +192,144 @@ elif type_choice == "DC":
     i = np.full_like(x, Ief)
     tau = None
 else:
-    # tu bol original volby suciastok RLC ,nahrada za nizsie
-    # DC - prechodový jav cez R, RL, RC, RLC obvod
-    # Odvodíme správnu časovú konštantu a priebeh podľa súčiastok
-    # Výpočet DC prechodového deja – numericky aj analyticky pre RL, RC, RLC
-    # -----------------------------------------
-    from scipy.integrate import odeint
+    U = st.sidebar.number_input("Napätie [V]", value=10.0)
+    I = st.sidebar.number_input("Prúd [A] (len pre zobrazenie výkonu)", value=1.0)
+    R = st.sidebar.number_input("Odpor R [Ω]", value=10.0)
+    L = st.sidebar.number_input("Indukčnosť L [H]", value=0.0)
+    C = st.sidebar.number_input("Kapacita C [F]", value=0.0)
 
-    # Automatické určenie τ (časovej konštanty) podľa typu obvodu
-    if R > 0 and L > 0 and C == 0:
-        tau = L / R  # RL obvod
-    elif R > 0 and C > 0 and L == 0:
-        tau = R * C  # RC obvod
-    elif R > 0 and L > 0 and C > 0:
-        tau = 2 * L / R  # tlmený RLC obvod (približná časová konštanta)
-    elif R == 0 and L > 0 and C == 0:
-        tau = L / 1e-9  # umelá náhrada malého odporu pre výpočet rozsahu
-    elif R == 0 and C > 0 and L == 0:
-        tau = 1e-9 * C  # podobne
+    annotation_time = st.sidebar.number_input("Čas pre anotáciu výstupov [s]", value=1.0)
+
+
+    # Časová os podľa tau:
+    def calculate_dynamic_tmax(R, L, C):
+        tau = 1.0
+        if R > 0 and L > 0 and C == 0:
+            tau = L / R
+        elif R > 0 and C > 0 and L == 0:
+            tau = R * C
+        elif L > 0 and C > 0:
+            tau = 2 * np.sqrt(L * C)
+        return 5 * tau if tau > 0 else 5.0
+
+
+    T_dynamic = calculate_dynamic_tmax(R, L, C)
+    T_max = st.sidebar.slider("Čas simulácie [s]", min_value=0.1, max_value=float(T_dynamic * 2),
+                              value=float(T_dynamic), step=0.1)
+    t = np.linspace(0, T_max, 2000)
+
+    # Výpočty a simulácia:
+    if type_choice == "DC - Prechodový dej":
+        st.subheader("DC - Prechodový dej")
+
+        if R > 0 and L > 0 and C == 0:
+            tau = L / R
+
+
+            def di_dt(i, t):
+                return (U - R * i) / L
+
+
+            i = odeint(lambda i, t: di_dt(i, t), 0, t).flatten()
+            u_R = R * i
+            u_L = U - u_R
+            P_R = u_R * i
+            P_L = u_L * i
+            P_total = U * i
+
+            st.write(f"\n**RL obvod:** τ = L/R = {tau:.4f} s")
+            st.write(f"Prúd v čase {annotation_time}s: {np.interp(annotation_time, t, i):.4f} A")
+            st.write(f"Napätie na R: {np.interp(annotation_time, t, u_R):.4f} V")
+            st.write(f"Napätie na L: {np.interp(annotation_time, t, u_L):.4f} V")
+            st.write(f"Výkon na R: {np.interp(annotation_time, t, P_R):.4f} W")
+            st.write(f"Výkon na L: {np.interp(annotation_time, t, P_L):.4f} W")
+            st.write(f"Celkový výkon: {np.interp(annotation_time, t, P_total):.4f} W")
+
+            fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+            ax[0].plot(t, i, label='Prúd [A]')
+            ax[0].legend();
+            ax[0].grid(True)
+            ax[1].plot(t, u_R, label='Napätie na R [V]')
+            ax[1].plot(t, u_L, label='Napätie na L [V]')
+            ax[1].legend();
+            ax[1].grid(True)
+            st.pyplot(fig)
+
+        elif R > 0 and C > 0 and L == 0:
+            tau = R * C
+
+
+            def uc_t(uC, t):
+                return (U - uC) / (R * C)
+
+
+            u_C = odeint(lambda uC, t: uc_t(uC, t), 0, t).flatten()
+            i = (U - u_C) / R
+            u_R = U - u_C
+            P_R = u_R * i
+            P_C = u_C * i
+            P_total = U * i
+
+            st.write(f"\n**RC obvod:** τ = RC = {tau:.4f} s")
+            st.write(f"Prúd v čase {annotation_time}s: {np.interp(annotation_time, t, i):.4f} A")
+            st.write(f"Napätie na R: {np.interp(annotation_time, t, u_R):.4f} V")
+            st.write(f"Napätie na C: {np.interp(annotation_time, t, u_C):.4f} V")
+            st.write(f"Výkon na R: {np.interp(annotation_time, t, P_R):.4f} W")
+            st.write(f"Výkon na C: {np.interp(annotation_time, t, P_C):.4f} W")
+            st.write(f"Celkový výkon: {np.interp(annotation_time, t, P_total):.4f} W")
+
+            fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+            ax[0].plot(t, i, label='Prúd [A]')
+            ax[0].legend();
+            ax[0].grid(True)
+            ax[1].plot(t, u_R, label='Napätie na R [V]')
+            ax[1].plot(t, u_C, label='Napätie na C [V]')
+            ax[1].legend();
+            ax[1].grid(True)
+            st.pyplot(fig)
+
+        elif L > 0 and C > 0:
+            def rlc_series(y, t):
+                uC, i = y
+                duC_dt = i / C
+                di_dt = (U - uC - R * i) / L
+                return [duC_dt, di_dt]
+
+
+            y0 = [0.0, 0.0]
+            sol = odeint(rlc_series, y0, t)
+            u_C = sol[:, 0]
+            i = sol[:, 1]
+            u_R = R * i
+            u_L = U - u_C - u_R
+            P_R = u_R * i
+            P_C = u_C * i
+            P_L = u_L * i
+            P_total = U * i
+
+            st.write("\n**RLC obvod - simulácia numerickým riešením 2. rádu**")
+            st.write(f"Prúd v čase {annotation_time}s: {np.interp(annotation_time, t, i):.4f} A")
+            st.write(f"Napätie na R: {np.interp(annotation_time, t, u_R):.4f} V")
+            st.write(f"Napätie na L: {np.interp(annotation_time, t, u_L):.4f} V")
+            st.write(f"Napätie na C: {np.interp(annotation_time, t, u_C):.4f} V")
+            st.write(f"Celkový výkon: {np.interp(annotation_time, t, P_total):.4f} W")
+
+            fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+            ax[0].plot(t, i, label='Prúd [A]')
+            ax[0].legend();
+            ax[0].grid(True)
+            ax[1].plot(t, u_R, label='Napätie na R [V]')
+            ax[1].plot(t, u_L, label='Napätie na L [V]')
+            ax[1].plot(t, u_C, label='Napätie na C [V]')
+            ax[1].legend();
+            ax[1].grid(True)
+            st.pyplot(fig)
+
+        else:
+            st.warning("Zadaj aspoň dve vhodné súčiastky (napr. R a L, R a C alebo L a C)")
+
     else:
-        tau = 0.001  # fallback hodnota
-
-    # Dynamická simulácia
-    t_max = 5 * tau  # sledujeme do 5τ
-    num_points = max(2000, int(t_max * 10000))  # jemné rozlíšenie aj pri malom τ
-    t = np.linspace(0, t_max, num_points)
-
-    st.markdown(f"**τ (časová konštanta):** {tau:.6f} s")
-    st.markdown(f"**t_max (koniec simulácie):** {t_max:.6f} s")
-    st.markdown(f"**Počet simulačných bodov:** {num_points}")
-
-    V = U_in
-
-    tau = None
-    annotation_time = None
-
-    if R > 0 and C > 0 and L == 0:
-        # RC obvod – exponenciálne nabíjanie kondenzátora
-        tau = R * C
-
-
-        def rc_voltage(Vc, t):
-            return (V / R) * np.exp(-t / tau)
-
-
-        current = (V / R) * np.exp(-t / tau)
-        voltage_c = V * (1 - np.exp(-t / tau))
-        power = voltage_c * current
-        annotation_time = 5 * tau
-
-        explanation = "RC obvod: Kondenzátor sa nabíja exponenciálne. Prúd klesá, napätie na C rastie."
-
-    elif R > 0 and L > 0 and C == 0:
-        # RL obvod – exponenciálny nárast prúdu
-        tau = L / R
-        current = (V / R) * (1 - np.exp(-t / tau))
-        voltage_l = V * np.exp(-t / tau)
-        power = V * current
-        annotation_time = 5 * tau
-
-        explanation = "RL obvod: Cievka bráni náhlemu nárastu prúdu. Napätie na L klesá."
-
-    elif R > 0 and L > 0 and C > 0:
-        # RLC obvod – diferenciálna rovnica 2. rádu
-        def rlc_ode(y, t):
-            q, i = y
-            dydt = [i, (V - R * i - q / C) / L]
-            return dydt
-
-
-        y0 = [0.0, 0.0]  # začiatočný náboj a prúd
-        sol = odeint(rlc_ode, y0, t)
-        q, current = sol[:, 0], sol[:, 1]
-        voltage_c = q / C
-        voltage_l = L * np.gradient(current, t)
-        voltage_r = R * current
-        power = voltage_r + voltage_l + voltage_c
-
-        tau = 1  # orientačne
-        annotation_time = 5
-
-        explanation = "RLC obvod: Systém 2. rádu – môže byť tlmený, netlmený alebo kriticky tlmený."
-
-    elif R == 0 and L > 0 and C == 0:
-        # Ideálna cievka – okamžitý nárast prúdu nie je možný
-        current = np.zeros_like(t)
-        current[1:] = np.nan  # nedefinované správanie bez odporu
-        voltage_l = V * np.ones_like(t)
-        power = voltage_l * current
-        annotation_time = 1
-
-
-        explanation = "Čisto L obvod bez R: teoreticky nekonečný prúd – neimplementovateľné fyzikálne."
-
-    elif R == 0 and C > 0 and L == 0:
-        # Ideálny kondenzátor – okamžité nabitie → prúd teoreticky nekonečný
-        current = np.zeros_like(t)
-        current[0] = np.inf  # delta impulz
-        voltage_c = V * np.ones_like(t)
-        power = voltage_c * current
-        annotation_time = 1
-
-        explanation = "Čisto C obvod bez R: okamžité nabitie kondenzátora – delta funkcia."
-
-    else:
-        # fallback pre prípad neznámych parametrov
-        current = np.zeros_like(t)
-        power = np.zeros_like(t)
-        annotation_time = 1
-        explanation = "Nedefinovaný obvod – nemožno simulovať."
-
-    # Grafy
-    fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
-    ax[0].plot(t, current, label='Prúd [A]')
-    ax[0].axvline(annotation_time, color='red', linestyle='--', label=f"čas ~5τ")
-    ax[0].legend()
-    ax[0].grid()
-    ax[0].set_ylabel("Prúd [A]")
-
-    ax[1].plot(t, power, label='Výkon [W]', color='orange')
-    ax[1].axvline(annotation_time, color='red', linestyle='--')
-    ax[1].legend()
-    ax[1].grid()
-    ax[1].set_xlabel("Čas [s]")
-    ax[1].set_ylabel("Výkon [W]")
-
-    st.pyplot(fig)
-    st.markdown(f"**Vysvetlenie:** {explanation}")
-
+        st.info("Zvoľ režim \"DC - Prechodový dej\" pre simuláciu dynamiky zapínania obvodov.")
 
 vykon = u * i
 vykon_avg = np.mean(vykon)
