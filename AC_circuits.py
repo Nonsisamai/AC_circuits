@@ -197,7 +197,6 @@ else:
     # Odvodíme správnu časovú konštantu a priebeh podľa súčiastok
     # Výpočet DC prechodového deja – numericky aj analyticky pre RL, RC, RLC
     # -----------------------------------------
-    from scipy.integrate import odeint
 
     # Automatické určenie τ (časovej konštanty) podľa typu obvodu
     if R > 0 and L > 0 and C == 0:
@@ -240,7 +239,7 @@ else:
         voltage_c = V * (1 - np.exp(-t / tau))
         power = voltage_c * current
         annotation_time = 5 * tau
-
+        vykon = power
         explanation = "RC obvod: Kondenzátor sa nabíja exponenciálne. Prúd klesá, napätie na C rastie."
 
     elif R > 0 and L > 0 and C == 0:
@@ -250,6 +249,9 @@ else:
         voltage_l = V * np.exp(-t / tau)
         power = V * current
         annotation_time = 5 * tau
+        i = current
+        u = voltage_l
+        vykon = power
 
         explanation = "RL obvod: Cievka bráni náhlemu nárastu prúdu. Napätie na L klesá."
 
@@ -271,6 +273,9 @@ else:
 
         tau = 1  # orientačne
         annotation_time = 5
+        i = current
+        u = voltage_l
+        vykon = power
 
         explanation = "RLC obvod: Systém 2. rádu – môže byť tlmený, netlmený alebo kriticky tlmený."
 
@@ -281,6 +286,9 @@ else:
         voltage_l = V * np.ones_like(t)
         power = voltage_l * current
         annotation_time = 1
+        i = current
+        u = voltage_l
+        vykon = power
 
         explanation = "Čisto L obvod bez R: teoreticky nekonečný prúd – neimplementovateľné fyzikálne."
 
@@ -291,6 +299,7 @@ else:
         voltage_c = V * np.ones_like(t)
         power = voltage_c * current
         annotation_time = 1
+        vykon = power
 
         explanation = "Čisto C obvod bez R: okamžité nabitie kondenzátora – delta funkcia."
 
@@ -300,6 +309,7 @@ else:
         power = np.zeros_like(t)
         annotation_time = 1
         explanation = "Nedefinovaný obvod – nemožno simulovať."
+        vykon = power
 
     # Grafy
     fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
@@ -319,45 +329,42 @@ else:
     st.pyplot(fig)
     st.markdown(f"**Vysvetlenie:** {explanation}")
 
+    vykon_avg = np.mean(vykon)
 
+    # Doplnková informácia o τ (časová konštanta)
+    if type_choice.startswith("DC") and tau is not None:
+        st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
 
-vykon = u * i
-vykon_avg = np.mean(vykon)
+    # Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
+    if annotation_time:
+        st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
 
-# Doplnková informácia o τ (časová konštanta)
-if type_choice.startswith("DC") and tau is not None:
-    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
+    # Graf s anotáciou
+    fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+    ax[0].plot(x, u, label='Napätie [V]', color='tab:blue')
+    ax[1].plot(x, i, label='Prúd [A]', color='tab:orange')
+    ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
 
-# Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
-if annotation_time:
-    st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
+    # Pridanie anotácie pre čas 5τ
+    if annotation_time and annotation_time <= x[-1]:
+        for a in ax:
+            a.axvline(annotation_time, color='red', linestyle='--', alpha=0.5)
+            a.text(annotation_time, a.get_ylim()[1]*0.8, '5τ', color='red')
 
-# Graf s anotáciou
-fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-ax[0].plot(x, u, label='Napätie [V]', color='tab:blue')
-ax[1].plot(x, i, label='Prúd [A]', color='tab:orange')
-ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
-
-# Pridanie anotácie pre čas 5τ
-if annotation_time and annotation_time <= x[-1]:
     for a in ax:
-        a.axvline(annotation_time, color='red', linestyle='--', alpha=0.5)
-        a.text(annotation_time, a.get_ylim()[1]*0.8, '5τ', color='red')
+        a.legend()
+        a.grid(True)
+        a.set_ylabel("Hodnota")
+    ax[2].set_xlabel("Čas [s]")
+    st.subheader("📊 Priebeh veličín v čase")
+    st.pyplot(fig)
 
-for a in ax:
-    a.legend()
-    a.grid(True)
-    a.set_ylabel("Hodnota")
-ax[2].set_xlabel("Čas [s]")
-st.subheader("📊 Priebeh veličín v čase")
-st.pyplot(fig)
-
-# Popis prechodového deja
-if type_choice == "DC - Prechodový dej (R-C / R-L)":
-    if C > 0:
-        st.info("Kondenzátor sa nabíja exponenciálne podľa vzťahu: \n **U(t) = U(1 - e^(-t/RC))**. \n Prúd na začiatku prudko klesá, až dosiahne nulu v ustálenom stave.")
-    elif L > 0:
-        st.info("Cievka spôsobí oneskorený nábeh prúdu: \n **I(t) = (U/R)(1 - e^(-Rt/L))**. \n Prúd stúpa od nuly, až sa ustáli. Napätie na cievke počas prechodu klesá.")
+    # Popis prechodového deja
+    if type_choice == "DC - Prechodový dej (R-C / R-L)":
+        if C > 0:
+            st.info("Kondenzátor sa nabíja exponenciálne podľa vzťahu: \n **U(t) = U(1 - e^(-t/RC))**. \n Prúd na začiatku prudko klesá, až dosiahne nulu v ustálenom stave.")
+        elif L > 0:
+            st.info("Cievka spôsobí oneskorený nábeh prúdu: \n **I(t) = (U/R)(1 - e^(-Rt/L))**. \n Prúd stúpa od nuly, až sa ustáli. Napätie na cievke počas prechodu klesá.")
 
 # Výpočtové výsledky
 st.subheader("🧮 Výpočty")
