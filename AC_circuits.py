@@ -197,6 +197,7 @@ else:
     # Odvodíme správnu časovú konštantu a priebeh podľa súčiastok
     # Výpočet DC prechodového deja – numericky aj analyticky pre RL, RC, RLC
     # -----------------------------------------
+    from scipy.integrate import odeint
 
     # Automatické určenie τ (časovej konštanty) podľa typu obvodu
     if R > 0 and L > 0 and C == 0:
@@ -239,7 +240,7 @@ else:
         voltage_c = V * (1 - np.exp(-t / tau))
         power = voltage_c * current
         annotation_time = 5 * tau
-        vykon = power
+
         explanation = "RC obvod: Kondenzátor sa nabíja exponenciálne. Prúd klesá, napätie na C rastie."
 
     elif R > 0 and L > 0 and C == 0:
@@ -249,9 +250,6 @@ else:
         voltage_l = V * np.exp(-t / tau)
         power = V * current
         annotation_time = 5 * tau
-        i = current
-        u = voltage_l
-        vykon = power
 
         explanation = "RL obvod: Cievka bráni náhlemu nárastu prúdu. Napätie na L klesá."
 
@@ -273,9 +271,6 @@ else:
 
         tau = 1  # orientačne
         annotation_time = 5
-        i = current
-        u = voltage_l
-        vykon = power
 
         explanation = "RLC obvod: Systém 2. rádu – môže byť tlmený, netlmený alebo kriticky tlmený."
 
@@ -286,9 +281,7 @@ else:
         voltage_l = V * np.ones_like(t)
         power = voltage_l * current
         annotation_time = 1
-        i = current
-        u = voltage_l
-        vykon = power
+
 
         explanation = "Čisto L obvod bez R: teoreticky nekonečný prúd – neimplementovateľné fyzikálne."
 
@@ -299,7 +292,6 @@ else:
         voltage_c = V * np.ones_like(t)
         power = voltage_c * current
         annotation_time = 1
-        vykon = power
 
         explanation = "Čisto C obvod bez R: okamžité nabitie kondenzátora – delta funkcia."
 
@@ -309,7 +301,6 @@ else:
         power = np.zeros_like(t)
         annotation_time = 1
         explanation = "Nedefinovaný obvod – nemožno simulovať."
-        vykon = power
 
     # Grafy
     fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
@@ -329,7 +320,9 @@ else:
     st.pyplot(fig)
     st.markdown(f"**Vysvetlenie:** {explanation}")
 
-    vykon_avg = np.mean(vykon)
+
+  #  vykon = u * i
+  #  vykon_avg = np.mean(vykon)
 
     # Doplnková informácia o τ (časová konštanta)
     if type_choice.startswith("DC") and tau is not None:
