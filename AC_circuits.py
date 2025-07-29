@@ -192,6 +192,10 @@ elif type_choice == "DC":
     i = np.full_like(x, Ief)
     tau = None
 else:
+    # Vstupy
+    st.sidebar.header("Parametre obvodu")
+    voltage_type = st.sidebar.selectbox("Typ napätia", ["AC", "DC", "DC - Prechodový dej"])
+
     U = st.sidebar.number_input("Napätie [V]", value=10.0)
     I = st.sidebar.number_input("Prúd [A] (len pre zobrazenie výkonu)", value=1.0)
     R = st.sidebar.number_input("Odpor R [Ω]", value=10.0)
@@ -219,7 +223,7 @@ else:
     t = np.linspace(0, T_max, 2000)
 
     # Výpočty a simulácia:
-    if type_choice == "DC - Prechodový dej":
+    if voltage_type == "DC - Prechodový dej":
         st.subheader("DC - Prechodový dej")
 
         if R > 0 and L > 0 and C == 0:
