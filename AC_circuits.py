@@ -9,6 +9,7 @@ import io
 import graphviz
 from math import cos, sin, radians, degrees, pi, sqrt, atan2, exp
 from fpdf import FPDF
+from scipy.integrate import odeint
 
 st.set_page_config(page_title="AC/DC Circuit Visualizer", layout="wide")
 
