@@ -136,7 +136,7 @@ if type_choice == "DC - Prechodový dej (R-C / R-L)":
     t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=0.01, step=0.1)
     t_points = st.sidebar.number_input("Počet bodov", value=1000, step=100)
 else:
-    t_max = 0.1
+    t_max = 0.001
     t_points = 1000
 
 # Auto-zistenie typu záťaže
@@ -191,53 +191,112 @@ elif type_choice == "DC":
     i = np.full_like(x, Ief)
     tau = None
 else:
-# tu bol original volby suciastok RLC ,nahrada za nizsie
+    # tu bol original volby suciastok RLC ,nahrada za nizsie
     # DC - prechodový jav cez R, RL, RC, RLC obvod
     # Odvodíme správnu časovú konštantu a priebeh podľa súčiastok
-    has_L = L > 0
-    has_C = C > 0
+    # Výpočet DC prechodového deja – numericky aj analyticky pre RL, RC, RLC
+    # -----------------------------------------
+    from scipy.integrate import odeint
 
-    if has_L and not has_C:
-        # RL obvod
-        tau = L / R if R != 0 else 0.0
-        t_max = 5 * tau if tau != 0 else 1
-        t = np.linspace(0, t_max, t_points)
-        i = (U_in / R) * (1 - np.exp(-t / tau)) if tau != 0 else np.full_like(t, U_in / R)
-        u = np.full_like(t, U_in)
-        annotation_time = 5 * tau
-    elif has_C and not has_L:
-        # RC obvod – nabíjanie kondenzátora
+    t = np.linspace(0, 10, 1000)
+    V = U_in
+
+    tau = None
+    annotation_time = None
+
+    if R > 0 and C > 0 and L == 0:
+        # RC obvod – exponenciálne nabíjanie kondenzátora
         tau = R * C
-        t_max = 5 * tau if tau != 0 else 1
-        t = np.linspace(0, t_max, t_points)
-        u = U_in * (1 - np.exp(-t / tau)) if tau != 0 else np.full_like(t, U_in)
-        i = (U_in / R) * np.exp(-t / tau) if tau != 0 else np.zeros_like(t)
+
+
+        def rc_voltage(Vc, t):
+            return (V / R) * np.exp(-t / tau)
+
+
+        current = (V / R) * np.exp(-t / tau)
+        voltage_c = V * (1 - np.exp(-t / tau))
+        power = voltage_c * current
         annotation_time = 5 * tau
-    elif has_C and has_L:
-        # RLC obvod – podtĺmený predpoklad
-        tau = 2 * L / R if R != 0 else 0.0
-        omega_0 = 1 / np.sqrt(L * C)
-        damping = R / (2 * L)
-        omega_d = np.sqrt(omega_0 ** 2 - damping ** 2) if omega_0 > damping else 0
-        t_max = 5 * tau if tau != 0 else 1
-        t = np.linspace(0, t_max, t_points)
-        A = U_in / (L * omega_d) if omega_d != 0 else 0
-        i = A * np.exp(-damping * t) * np.sin(omega_d * t) if omega_d != 0 else np.zeros_like(t)
-        u = np.full_like(t, U_in)
+
+        explanation = "RC obvod: Kondenzátor sa nabíja exponenciálne. Prúd klesá, napätie na C rastie."
+
+    elif R > 0 and L > 0 and C == 0:
+        # RL obvod – exponenciálny nárast prúdu
+        tau = L / R
+        current = (V / R) * (1 - np.exp(-t / tau))
+        voltage_l = V * np.exp(-t / tau)
+        power = V * current
         annotation_time = 5 * tau
+
+        explanation = "RL obvod: Cievka bráni náhlemu nárastu prúdu. Napätie na L klesá."
+
+    elif R > 0 and L > 0 and C > 0:
+        # RLC obvod – diferenciálna rovnica 2. rádu
+        def rlc_ode(y, t):
+            q, i = y
+            dydt = [i, (V - R * i - q / C) / L]
+            return dydt
+
+
+        y0 = [0.0, 0.0]  # začiatočný náboj a prúd
+        sol = odeint(rlc_ode, y0, t)
+        q, current = sol[:, 0], sol[:, 1]
+        voltage_c = q / C
+        voltage_l = L * np.gradient(current, t)
+        voltage_r = R * current
+        power = voltage_r + voltage_l + voltage_c
+
+        tau = 1  # orientačne
+        annotation_time = 5
+
+        explanation = "RLC obvod: Systém 2. rádu – môže byť tlmený, netlmený alebo kriticky tlmený."
+
+    elif R == 0 and L > 0 and C == 0:
+        # Ideálna cievka – okamžitý nárast prúdu nie je možný
+        current = np.zeros_like(t)
+        current[1:] = np.nan  # nedefinované správanie bez odporu
+        voltage_l = V * np.ones_like(t)
+        power = voltage_l * current
+        annotation_time = 1
+
+        explanation = "Čisto L obvod bez R: teoreticky nekonečný prúd – neimplementovateľné fyzikálne."
+
+    elif R == 0 and C > 0 and L == 0:
+        # Ideálny kondenzátor – okamžité nabitie → prúd teoreticky nekonečný
+        current = np.zeros_like(t)
+        current[0] = np.inf  # delta impulz
+        voltage_c = V * np.ones_like(t)
+        power = voltage_c * current
+        annotation_time = 1
+
+        explanation = "Čisto C obvod bez R: okamžité nabitie kondenzátora – delta funkcia."
+
     else:
-        # Čistý rezistor – okamžitý ustálený stav
-        t = np.linspace(0, 1, t_points)
-        i = np.full_like(t, U_in / R)
-        u = np.full_like(t, U_in)
+        # fallback pre prípad neznámych parametrov
+        current = np.zeros_like(t)
+        power = np.zeros_like(t)
+        annotation_time = 1
+        explanation = "Nedefinovaný obvod – nemožno simulovať."
 
-    p = u * i
+    # Grafy
+    fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+    ax[0].plot(t, current, label='Prúd [A]')
+    ax[0].axvline(annotation_time, color='red', linestyle='--', label=f"čas ~5τ")
+    ax[0].legend()
+    ax[0].grid()
+    ax[0].set_ylabel("Prúd [A]")
 
-    st.subheader("Výpočty pre DC prechodový jav")
-    st.write(f"🧮 Časová konštanta (τ): {tau:.4f} s")
-    st.write(f"📈 Ustálený prúd (posledný bod): {i[-1]:.4f} A")
-    st.write(f"🔋 Ustálený výkon: {p[-1]:.4f} W")
-    st.write(f"📊 Maximálny výkon počas prechodu: {np.max(p):.2f} W")
+    ax[1].plot(t, power, label='Výkon [W]', color='orange')
+    ax[1].axvline(annotation_time, color='red', linestyle='--')
+    ax[1].legend()
+    ax[1].grid()
+    ax[1].set_xlabel("Čas [s]")
+    ax[1].set_ylabel("Výkon [W]")
+
+    st.pyplot(fig)
+    st.markdown(f"**Vysvetlenie:** {explanation}")
+
+
 
 vykon = u * i
 vykon_avg = np.mean(vykon)
