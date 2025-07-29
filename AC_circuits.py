@@ -199,7 +199,26 @@ else:
     # -----------------------------------------
     from scipy.integrate import odeint
 
-    t = np.linspace(0, 10, 1000)
+    # Automatické určenie τ (časovej konštanty) podľa typu obvodu
+    if R > 0 and L > 0 and C == 0:
+        tau = L / R  # RL obvod
+    elif R > 0 and C > 0 and L == 0:
+        tau = R * C  # RC obvod
+    elif R > 0 and L > 0 and C > 0:
+        tau = 2 * L / R  # tlmený RLC obvod (približná časová konštanta)
+    elif R == 0 and L > 0 and C == 0:
+        tau = L / 1e-9  # umelá náhrada malého odporu pre výpočet rozsahu
+    elif R == 0 and C > 0 and L == 0:
+        tau = 1e-9 * C  # podobne
+    else:
+        tau = 0.001  # fallback hodnota
+
+    # Dynamická simulácia
+    t_max = 5 * tau  # sledujeme do 5τ
+    num_points = max(2000, int(t_max * 10000))  # jemné rozlíšenie aj pri malom τ
+    t = np.linspace(0, t_max, num_points)
+
+
     V = U_in
 
     tau = None
@@ -297,7 +316,9 @@ else:
     st.pyplot(fig)
     st.markdown(f"**Vysvetlenie:** {explanation}")
 
-
+    st.markdown(f"**τ (časová konštanta):** {tau:.6f} s")
+    st.markdown(f"**t_max (koniec simulácie):** {t_max:.6f} s")
+    st.markdown(f"**Počet simulačných bodov:** {num_points}")
 
 vykon = u * i
 vykon_avg = np.mean(vykon)
