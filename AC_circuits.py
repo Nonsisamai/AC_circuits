@@ -218,6 +218,9 @@ else:
     num_points = max(2000, int(t_max * 10000))  # jemné rozlíšenie aj pri malom τ
     t = np.linspace(0, t_max, num_points)
 
+    st.markdown(f"**τ (časová konštanta):** {tau:.6f} s")
+    st.markdown(f"**t_max (koniec simulácie):** {t_max:.6f} s")
+    st.markdown(f"**Počet simulačných bodov:** {num_points}")
 
     V = U_in
 
@@ -316,9 +319,7 @@ else:
     st.pyplot(fig)
     st.markdown(f"**Vysvetlenie:** {explanation}")
 
-    st.markdown(f"**τ (časová konštanta):** {tau:.6f} s")
-    st.markdown(f"**t_max (koniec simulácie):** {t_max:.6f} s")
-    st.markdown(f"**Počet simulačných bodov:** {num_points}")
+
 
 vykon = u * i
 vykon_avg = np.mean(vykon)
