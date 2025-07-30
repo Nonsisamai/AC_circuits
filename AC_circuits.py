@@ -135,7 +135,7 @@ if type_choice == "DC - Prechodový dej (R-C / R-L)":
     st.sidebar.markdown("---")
     st.sidebar.markdown("⏱️ **Čas simulácie prechodu**")
     t_max = st.sidebar.number_input("Maximálny čas simulácie [s]", value=1.0, min_value=0.01, step=0.1)
-    t_points = st.sidebar.number_input("Počet bodov", value=1000, step=100)
+    t_points = st.sidebar.number_input("Počet bodov", value=10000, step=10)
 else:
     t_max = 0.001
     t_points = 1000
@@ -191,10 +191,10 @@ elif type_choice == "DC":
     u = np.full_like(x, Uef)
     i = np.full_like(x, Ief)
     tau = None
-else:
+elif type_choice == "DC - Prechodový dej (R-C / R-L)":
     # Vstupy
     st.sidebar.header("Parametre obvodu")
-    voltage_type = st.sidebar.selectbox("Typ napätia", ["AC", "DC", "DC - Prechodový dej"])
+    #voltage_type = st.sidebar.selectbox("Typ napätia", ["AC", "DC", "DC - Prechodový dej"])
 
     U = st.sidebar.number_input("Napätie [V]", value=10.0)
     I = st.sidebar.number_input("Prúd [A] (len pre zobrazenie výkonu)", value=1.0)
@@ -223,120 +223,120 @@ else:
     t = np.linspace(0, T_max, 2000)
 
     # Výpočty a simulácia:
-    if voltage_type == "DC - Prechodový dej":
-        st.subheader("DC - Prechodový dej")
+#if voltage_type == "DC - Prechodový dej":
+    #   st.subheader("DC - Prechodový dej")
 
-        if R > 0 and L > 0 and C == 0:
-            tau = L / R
-
-
-            def di_dt(i, t):
-                return (U - R * i) / L
+    if R > 0 and L > 0 and C == 0:
+        tau = L / R
 
 
-            i = odeint(lambda i, t: di_dt(i, t), 0, t).flatten()
-            u_R = R * i
-            u_L = U - u_R
-            P_R = u_R * i
-            P_L = u_L * i
-            P_total = U * i
-
-            st.write(f"\n**RL obvod:** τ = L/R = {tau:.4f} s")
-            st.write(f"Prúd v čase {annotation_time}s: {np.interp(annotation_time, t, i):.4f} A")
-            st.write(f"Napätie na R: {np.interp(annotation_time, t, u_R):.4f} V")
-            st.write(f"Napätie na L: {np.interp(annotation_time, t, u_L):.4f} V")
-            st.write(f"Výkon na R: {np.interp(annotation_time, t, P_R):.4f} W")
-            st.write(f"Výkon na L: {np.interp(annotation_time, t, P_L):.4f} W")
-            st.write(f"Celkový výkon: {np.interp(annotation_time, t, P_total):.4f} W")
-
-            fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
-            ax[0].plot(t, i, label='Prúd [A]')
-            ax[0].legend();
-            ax[0].grid(True)
-            ax[1].plot(t, u_R, label='Napätie na R [V]')
-            ax[1].plot(t, u_L, label='Napätie na L [V]')
-            ax[1].legend();
-            ax[1].grid(True)
-            st.pyplot(fig)
-
-        elif R > 0 and C > 0 and L == 0:
-            tau = R * C
+        def di_dt(i, t):
+            return (U - R * i) / L
 
 
-            def uc_t(uC, t):
-                return (U - uC) / (R * C)
+        i = odeint(lambda i, t: di_dt(i, t), 0, t).flatten()
+        u_R = R * i
+        u_L = U - u_R
+        P_R = u_R * i
+        P_L = u_L * i
+        P_total = U * i
+
+        st.write(f"\n**RL obvod:** τ = L/R = {tau:.4f} s")
+        st.write(f"Prúd v čase {annotation_time}s: {np.interp(annotation_time, t, i):.4f} A")
+        st.write(f"Napätie na R: {np.interp(annotation_time, t, u_R):.4f} V")
+        st.write(f"Napätie na L: {np.interp(annotation_time, t, u_L):.4f} V")
+        st.write(f"Výkon na R: {np.interp(annotation_time, t, P_R):.4f} W")
+        st.write(f"Výkon na L: {np.interp(annotation_time, t, P_L):.4f} W")
+        st.write(f"Celkový výkon: {np.interp(annotation_time, t, P_total):.4f} W")
+
+        fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+        ax[0].plot(t, i, label='Prúd [A]')
+        ax[0].legend();
+        ax[0].grid(True)
+        ax[1].plot(t, u_R, label='Napätie na R [V]')
+        ax[1].plot(t, u_L, label='Napätie na L [V]')
+        ax[1].legend();
+        ax[1].grid(True)
+        st.pyplot(fig)
+
+    elif R > 0 and C > 0 and L == 0:
+        tau = R * C
 
 
-            u_C = odeint(lambda uC, t: uc_t(uC, t), 0, t).flatten()
-            i = (U - u_C) / R
-            u_R = U - u_C
-            P_R = u_R * i
-            P_C = u_C * i
-            P_total = U * i
-
-            st.write(f"\n**RC obvod:** τ = RC = {tau:.4f} s")
-            st.write(f"Prúd v čase {annotation_time}s: {np.interp(annotation_time, t, i):.4f} A")
-            st.write(f"Napätie na R: {np.interp(annotation_time, t, u_R):.4f} V")
-            st.write(f"Napätie na C: {np.interp(annotation_time, t, u_C):.4f} V")
-            st.write(f"Výkon na R: {np.interp(annotation_time, t, P_R):.4f} W")
-            st.write(f"Výkon na C: {np.interp(annotation_time, t, P_C):.4f} W")
-            st.write(f"Celkový výkon: {np.interp(annotation_time, t, P_total):.4f} W")
-
-            fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
-            ax[0].plot(t, i, label='Prúd [A]')
-            ax[0].legend();
-            ax[0].grid(True)
-            ax[1].plot(t, u_R, label='Napätie na R [V]')
-            ax[1].plot(t, u_C, label='Napätie na C [V]')
-            ax[1].legend();
-            ax[1].grid(True)
-            st.pyplot(fig)
-
-        elif L > 0 and C > 0:
-            def rlc_series(y, t):
-                uC, i = y
-                duC_dt = i / C
-                di_dt = (U - uC - R * i) / L
-                return [duC_dt, di_dt]
+        def uc_t(uC, t):
+            return (U - uC) / (R * C)
 
 
-            y0 = [0.0, 0.0]
-            sol = odeint(rlc_series, y0, t)
-            u_C = sol[:, 0]
-            i = sol[:, 1]
-            u_R = R * i
-            u_L = U - u_C - u_R
-            P_R = u_R * i
-            P_C = u_C * i
-            P_L = u_L * i
-            P_total = U * i
+        u_C = odeint(lambda uC, t: uc_t(uC, t), 0, t).flatten()
+        i = (U - u_C) / R
+        u_R = U - u_C
+        P_R = u_R * i
+        P_C = u_C * i
+        P_total = U * i
 
-            st.write("\n**RLC obvod - simulácia numerickým riešením 2. rádu**")
-            st.write(f"Prúd v čase {annotation_time}s: {np.interp(annotation_time, t, i):.4f} A")
-            st.write(f"Napätie na R: {np.interp(annotation_time, t, u_R):.4f} V")
-            st.write(f"Napätie na L: {np.interp(annotation_time, t, u_L):.4f} V")
-            st.write(f"Napätie na C: {np.interp(annotation_time, t, u_C):.4f} V")
-            st.write(f"Celkový výkon: {np.interp(annotation_time, t, P_total):.4f} W")
+        st.write(f"\n**RC obvod:** τ = RC = {tau:.4f} s")
+        st.write(f"Prúd v čase {annotation_time}s: {np.interp(annotation_time, t, i):.4f} A")
+        st.write(f"Napätie na R: {np.interp(annotation_time, t, u_R):.4f} V")
+        st.write(f"Napätie na C: {np.interp(annotation_time, t, u_C):.4f} V")
+        st.write(f"Výkon na R: {np.interp(annotation_time, t, P_R):.4f} W")
+        st.write(f"Výkon na C: {np.interp(annotation_time, t, P_C):.4f} W")
+        st.write(f"Celkový výkon: {np.interp(annotation_time, t, P_total):.4f} W")
 
-            fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
-            ax[0].plot(t, i, label='Prúd [A]')
-            ax[0].legend();
-            ax[0].grid(True)
-            ax[1].plot(t, u_R, label='Napätie na R [V]')
-            ax[1].plot(t, u_L, label='Napätie na L [V]')
-            ax[1].plot(t, u_C, label='Napätie na C [V]')
-            ax[1].legend();
-            ax[1].grid(True)
-            st.pyplot(fig)
+        fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+        ax[0].plot(t, i, label='Prúd [A]')
+        ax[0].legend();
+        ax[0].grid(True)
+        ax[1].plot(t, u_R, label='Napätie na R [V]')
+        ax[1].plot(t, u_C, label='Napätie na C [V]')
+        ax[1].legend();
+        ax[1].grid(True)
+        st.pyplot(fig)
 
-        else:
-            st.warning("Zadaj aspoň dve vhodné súčiastky (napr. R a L, R a C alebo L a C)")
+    elif L > 0 and C > 0:
+        def rlc_series(y, t):
+            uC, i = y
+            duC_dt = i / C
+            di_dt = (U - uC - R * i) / L
+            return [duC_dt, di_dt]
+
+
+        y0 = [0.0, 0.0]
+        sol = odeint(rlc_series, y0, t)
+        u_C = sol[:, 0]
+        i = sol[:, 1]
+        u_R = R * i
+        u_L = U - u_C - u_R
+        P_R = u_R * i
+        P_C = u_C * i
+        P_L = u_L * i
+        P_total = U * i
+
+        st.write("\n**RLC obvod - simulácia numerickým riešením 2. rádu**")
+        st.write(f"Prúd v čase {annotation_time}s: {np.interp(annotation_time, t, i):.4f} A")
+        st.write(f"Napätie na R: {np.interp(annotation_time, t, u_R):.4f} V")
+        st.write(f"Napätie na L: {np.interp(annotation_time, t, u_L):.4f} V")
+        st.write(f"Napätie na C: {np.interp(annotation_time, t, u_C):.4f} V")
+        st.write(f"Celkový výkon: {np.interp(annotation_time, t, P_total):.4f} W")
+
+        fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+        ax[0].plot(t, i, label='Prúd [A]')
+        ax[0].legend();
+        ax[0].grid(True)
+        ax[1].plot(t, u_R, label='Napätie na R [V]')
+        ax[1].plot(t, u_L, label='Napätie na L [V]')
+        ax[1].plot(t, u_C, label='Napätie na C [V]')
+        ax[1].legend();
+        ax[1].grid(True)
+        st.pyplot(fig)
 
     else:
-        st.info("Zvoľ režim \"DC - Prechodový dej\" pre simuláciu dynamiky zapínania obvodov.")
+        st.warning("Zadaj aspoň dve vhodné súčiastky (napr. R a L, R a C alebo L a C)")
 
-vykon = u * i
-vykon_avg = np.mean(vykon)
+else:
+    st.info("Zvoľ režim \"DC - Prechodový dej\" pre simuláciu dynamiky zapínania obvodov.")
+
+#vykon = u * i
+vykon_avg = np.mean(P_total)
 
 # Doplnková informácia o τ (časová konštanta)
 if type_choice.startswith("DC") and tau is not None:
