@@ -39,7 +39,7 @@ def temperature_adjust_resistance(R, temp, temp_coeff=0.004):  # Approx. for cop
     return R * (1 + temp_coeff * (temp - 20))
 
 # --- Streamlit UI ---
-st.title("💡 Interaktívna simulácia AC/DC obvodov")
+st.title("💡 Interaktívna simulácia AC/DC obvodov VO VYVOJI viac verzii")
 st.markdown("### Vyber typ simulácie")
 sim_type = st.selectbox("Typ simulácie", ["AC", "DC", "DC - prechodový dej"])
 st.markdown("### Zadaj základné parametre obvodu")
