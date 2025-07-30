@@ -344,8 +344,24 @@ elif type_choice == "DC - Prechodový dej (R-C / R-L)":
         st.pyplot(fig)
         P_total = U * i
 
+        if annotation_time and annotation_time <= x[-1]:
+            for a in ax:
+                a.axvline(annotation_time, color='red', linestyle='--', alpha=0.5)
+                a.text(annotation_time, a.get_ylim()[1] * 0.8, '5τ', color='red')
+
+        for a in ax:
+            a.legend()
+            a.grid(True)
+            a.set_ylabel("Hodnota")
+        ax[2].set_xlabel("Čas [s]")
+        st.subheader("📊 Priebeh veličín v čase")
+        st.pyplot(fig)
+
     else:
         st.warning("Zadaj aspoň dve vhodné súčiastky (napr. R a L, R a C alebo L a C)")
+
+
+
 else:
     st.info("Zvoľ režim \"DC - Prechodový dej\" pre simuláciu dynamiky zapínania obvodov.")
 
@@ -359,18 +375,7 @@ if annotation_time:
     st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
 
 # Pridanie anotácie pre čas 5τ
-if annotation_time and annotation_time <= x[-1]:
-    for a in ax:
-        a.axvline(annotation_time, color='red', linestyle='--', alpha=0.5)
-        a.text(annotation_time, a.get_ylim()[1]*0.8, '5τ', color='red')
 
-for a in ax:
-    a.legend()
-    a.grid(True)
-    a.set_ylabel("Hodnota")
-ax[2].set_xlabel("Čas [s]")
-st.subheader("📊 Priebeh veličín v čase")
-st.pyplot(fig)
 
 # Popis prechodového deja
 if type_choice == "DC - Prechodový dej (R-C / R-L)":
