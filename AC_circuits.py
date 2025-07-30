@@ -187,10 +187,12 @@ if type_choice == "AC":
     x = np.linspace(0, 2*T, 1000)
     u = Umax * np.sin(omega * x)
     i = Imax * np.sin(omega * x - phi_calc_rad)
+    vykon = u * i
 elif type_choice == "DC":
     u = np.full_like(x, Uef)
     i = np.full_like(x, Ief)
     tau = None
+    vykon = u * i
 elif type_choice == "DC - Prechodový dej (R-C / R-L)":
     # Vstupy
     st.sidebar.header("Parametre obvodu")
@@ -335,7 +337,7 @@ elif type_choice == "DC - Prechodový dej (R-C / R-L)":
 else:
     st.info("Zvoľ režim \"DC - Prechodový dej\" pre simuláciu dynamiky zapínania obvodov.")
 
-vykon = U_in * I_in
+
 vykon_avg = np.mean(vykon)
 
 # Doplnková informácia o τ (časová konštanta)
@@ -348,8 +350,8 @@ if annotation_time:
 
 # Graf s anotáciou
 fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-ax[0].plot(x, U_in, label='Napätie [V]', color='tab:blue')
-ax[1].plot(x, I_in, label='Prúd [A]', color='tab:orange')
+ax[0].plot(x, u, label='Napätie [V]', color='tab:blue')
+ax[1].plot(x, i, label='Prúd [A]', color='tab:orange')
 ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
 
 # Pridanie anotácie pre čas 5τ
