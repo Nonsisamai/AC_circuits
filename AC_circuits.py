@@ -188,11 +188,23 @@ if type_choice == "AC":
     u = Umax * np.sin(omega * x)
     i = Imax * np.sin(omega * x - phi_calc_rad)
     vykon = u * i
+    vykon_avg = np.mean(vykon)
+    # Graf s anotáciou
+    fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+    ax[0].plot(x, u, label='Napätie [V]', color='tab:blue')
+    ax[1].plot(x, i, label='Prúd [A]', color='tab:orange')
+    ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
 elif type_choice == "DC":
     u = np.full_like(x, Uef)
     i = np.full_like(x, Ief)
     tau = None
     vykon = u * i
+    vykon_avg = np.mean(vykon)
+    # Graf s anotáciou
+    fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+    ax[0].plot(x, u, label='Napätie [V]', color='tab:blue')
+    ax[1].plot(x, i, label='Prúd [A]', color='tab:orange')
+    ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
 elif type_choice == "DC - Prechodový dej (R-C / R-L)":
     # Vstupy
     st.sidebar.header("Parametre obvodu")
@@ -330,29 +342,20 @@ elif type_choice == "DC - Prechodový dej (R-C / R-L)":
         ax[1].legend();
         ax[1].grid(True)
         st.pyplot(fig)
-
+        P_total = U * i
     else:
         st.warning("Zadaj aspoň dve vhodné súčiastky (napr. R a L, R a C alebo L a C)")
+        # Doplnková informácia o τ (časová konštanta)
+if type_choice.startswith("DC") and tau is not None:
+    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
 
 else:
     st.info("Zvoľ režim \"DC - Prechodový dej\" pre simuláciu dynamiky zapínania obvodov.")
 
 
-vykon_avg = np.mean(vykon)
-
-# Doplnková informácia o τ (časová konštanta)
-if type_choice.startswith("DC") and tau is not None:
-    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
-
 # Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
 if annotation_time:
     st.markdown(f"⚡ **Prechod ustálený do:** {annotation_time:.3f} s (≈ 5τ)")
-
-# Graf s anotáciou
-fig, ax = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-ax[0].plot(x, u, label='Napätie [V]', color='tab:blue')
-ax[1].plot(x, i, label='Prúd [A]', color='tab:orange')
-ax[2].plot(x, vykon, label=f'Výkon [W] ⟨P⟩={vykon_avg:.2f}', color='tab:green')
 
 # Pridanie anotácie pre čas 5τ
 if annotation_time and annotation_time <= x[-1]:
