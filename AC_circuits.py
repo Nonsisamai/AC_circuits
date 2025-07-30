@@ -343,15 +343,16 @@ elif type_choice == "DC - Prechodový dej (R-C / R-L)":
         ax[1].grid(True)
         st.pyplot(fig)
         P_total = U * i
+
     else:
         st.warning("Zadaj aspoň dve vhodné súčiastky (napr. R a L, R a C alebo L a C)")
-        # Doplnková informácia o τ (časová konštanta)
-if type_choice.startswith("DC") and tau is not None:
-    st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
-
 else:
     st.info("Zvoľ režim \"DC - Prechodový dej\" pre simuláciu dynamiky zapínania obvodov.")
 
+
+# Doplnková informácia o τ (časová konštanta)
+ #   if type_choice.startswith("DC") and tau is not None:
+        #st.markdown(f"**Časová konštanta τ =** {tau:.4f} s")
 
 # Zobrazenie bodu, kedy sa kondenzátor nabije na 99 %
 if annotation_time:
