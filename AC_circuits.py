@@ -1,181 +1,117 @@
+
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-import math
 
-st.set_page_config(page_title="RLC Obvod Simulátor", layout="wide")
-
-st.title("🔌 Interaktívna simulácia RLC obvodov")
-st.markdown("""
-Tento simulátor ti umožňuje analyzovať chovanie odporu (R), cievky (L) a kondenzátora (C) v rôznych typoch obvodov – **DC aj AC**, vrátane prechodových javov, výpočtov výkonov a fázorového správania.
-
----
-""")
-
-# Pomocná funkcia na aplikovanie SI prefixov
-prefix_map = {
-    "p" : 1e-12,
-    "n" : 1e-9,
-    "µ" : 1e-6,
-    "m" : 1e-3,
-    ""  : 1,
-    "k" : 1e3,
-    "M" : 1e6,
-    "G" : 1e9
+# --- Constants ---
+prefixes = {
+    "p": 1e-12, "n": 1e-9, "µ": 1e-6, "m": 1e-3,
+    "": 1,
+    "k": 1e3, "M": 1e6
 }
 
+# --- Helper Functions ---
 def apply_prefix(value, prefix):
-    return value * prefix_map[prefix]
+    try:
+        return float(value) * prefixes.get(prefix, 1)
+    except:
+        return 0
 
-def format_value_si(value, unit):
-    for prefix, factor in reversed(prefix_map.items()):
-        if abs(value) >= factor:
-            return f"{value / factor:.2f} {prefix}{unit}"
-    return f"{value:.2e} {unit}"
+def calculate_impedance(R, L, C, omega):
+    Z_R = R
+    Z_L = 1j * omega * L if L > 0 else 0
+    Z_C = -1j / (omega * C) if C > 0 else 0
+    return Z_R + Z_L + Z_C
 
-# Výber typu zapojenia
-type_of_circuit = st.selectbox("Vyber typ zapojenia:", ["DC - R", "DC - RL", "DC - RC", "DC - RLC (prechodový dej)", "AC - R", "AC - RL", "AC - RC", "AC - RLC"])
+def calculate_current(U, Z):
+    return U / Z if Z != 0 else 0
 
-# Sekcia zadávania hodnôt
-st.header("🧮 Zadaj hodnoty prvkov")
+def calculate_powers(U, I, phi):
+    S = U * I
+    P = U * I * np.cos(phi)
+    Q = U * I * np.sin(phi)
+    return abs(S), abs(P), abs(Q)
+
+def calculate_voltage_drop(I, Z):
+    return I * Z
+
+def temperature_adjust_resistance(R, temp, temp_coeff=0.004):  # Approx. for copper
+    return R * (1 + temp_coeff * (temp - 20))
+
+# --- Streamlit UI ---
+st.title("💡 Interaktívna simulácia AC/DC obvodov")
+st.markdown("### Vyber typ simulácie")
+sim_type = st.selectbox("Typ simulácie", ["AC", "DC", "DC - prechodový dej"])
+st.markdown("### Zadaj základné parametre obvodu")
+
 col1, col2, col3 = st.columns(3)
-
 with col1:
-    R_val = st.number_input("Odpor R", min_value=0.0, value=100.0)
-    R_prefix = st.selectbox("Prefix R", list(prefix_map.keys()), index=4, key="Rprefix")
-    R = apply_prefix(R_val, R_prefix)
-    st.markdown(f"➡️ R = {format_value_si(R, 'Ω')}")
-
+    R_val = st.text_input("Odpor (R)", "100")
+    R_pre = st.selectbox("Prefix R", list(prefixes.keys()), index=4)
 with col2:
-    L_val = st.number_input("Indukčnosť L", min_value=0.0, value=10.0)
-    L_prefix = st.selectbox("Prefix L", list(prefix_map.keys()), index=2, key="Lprefix")
-    L = apply_prefix(L_val, L_prefix)
-    st.markdown(f"➡️ L = {format_value_si(L, 'H')}")
-
+    L_val = st.text_input("Indukčnosť (L)", "10")
+    L_pre = st.selectbox("Prefix L", list(prefixes.keys()), index=3)
 with col3:
-    C_val = st.number_input("Kapacita C", min_value=0.0, value=1.0)
-    C_prefix = st.selectbox("Prefix C", list(prefix_map.keys()), index=2, key="Cprefix")
-    C = apply_prefix(C_val, C_prefix)
-    st.markdown(f"➡️ C = {format_value_si(C, 'F')}")
+    C_val = st.text_input("Kapacita (C)", "100")
+    C_pre = st.selectbox("Prefix C", list(prefixes.keys()), index=2)
 
-st.markdown("---")
+col4, col5 = st.columns(2)
+with col4:
+    U_val = st.text_input("Napätie zdroja (U)", "10")
+    U_pre = st.selectbox("Prefix U", list(prefixes.keys()), index=4)
+with col5:
+    f_val = st.text_input("Frekvencia (Hz)", "50")
 
-st.header("⚙️ Nastavenie zdroja")
-colu1, colu2 = st.columns(2)
+st.markdown("### Rozšírené nastavenia")
+col6, col7 = st.columns(2)
+with col6:
+    temp_env = st.slider("Teplota okolia (°C)", -20, 100, 20)
+with col7:
+    include_temp = st.checkbox("Zohľadniť vplyv teploty na odpor", value=True)
 
-with colu1:
-    U_val = st.number_input("Napätie (U)", value=10.0)
-    U_prefix = st.selectbox("Prefix napätia", list(prefix_map.keys()), index=4, key="Uprefix")
-    U = apply_prefix(U_val, U_prefix)
-    st.markdown(f"➡️ U = {format_value_si(U, 'V')}")
+# --- Prepočty vstupov ---
+R = apply_prefix(R_val, R_pre)
+L = apply_prefix(L_val, L_pre)
+C = apply_prefix(C_val, C_pre)
+U = apply_prefix(U_val, U_pre)
+f = float(f_val) if f_val else 0
+omega = 2 * np.pi * f
 
-with colu2:
-    if "AC" in type_of_circuit:
-        f = st.number_input("Frekvencia [Hz]", value=50.0)
-        omega = 2 * math.pi * f
-        st.markdown(f"➡️ ω = {omega:.2f} rad/s")
-    else:
-        omega = 0
-        f = 0
+if include_temp:
+    R = temperature_adjust_resistance(R, temp_env)
 
-st.markdown("---")
+# --- Výpočty ---
+Z = calculate_impedance(R, L, C, omega if sim_type == "AC" else 0.001)
+I = calculate_current(U, Z)
+phi = np.angle(Z)
+S, P, Q = calculate_powers(U, abs(I), phi)
+UL = abs(calculate_voltage_drop(I, 1j * omega * L)) if L > 0 else 0
+UC = abs(calculate_voltage_drop(I, -1j / (omega * C))) if C > 0 else 0
+UR = abs(I * R)
 
-# Výpočty impedancií
-Z_R = complex(R, 0)
-Z_L = complex(0, omega * L)
-Z_C = complex(0, -1 / (omega * C)) if C > 0 and omega > 0 else complex(0, 0)
+# --- Výstup ---
+st.markdown("## 💬 Výsledky simulácie")
+st.write(f"**Celková impedancia Z:** {abs(Z):.2f} Ω")
+st.write(f"**Fázový posun φ:** {np.degrees(phi):.2f}°")
+st.write(f"**Prúd v obvode I:** {abs(I):.2f} A")
+st.write(f"**Napätie na R:** {UR:.2f} V, na L: {UL:.2f} V, na C: {UC:.2f} V")
+st.write(f"**Výkony:** Zdanlivý = {S:.2f} VA, Činný = {P:.2f} W, Jalový = {Q:.2f} var")
 
-if "RLC" in type_of_circuit:
-    Z_total = Z_R + Z_L + Z_C
-elif "RL" in type_of_circuit:
-    Z_total = Z_R + Z_L
-elif "RC" in type_of_circuit:
-    Z_total = Z_R + Z_C
-else:
-    Z_total = Z_R
+# --- Vzorce a vysvetlenia ---
+st.markdown("### 📘 Edukačné vysvetlenie")
+st.info("'Impedancia RLC obvodu Z = R + jωL - j/(ωC)'"        "Fázorový prúd: 'I = U / Z'"        "Výkony: 'S = UI', 'P = UI·cos(φ)', 'Q = UI·sin(φ)'"        "Zohľadnený vplyv teploty na odpor: 'R = R₀(1 + α·(T - 20))'")
 
-# Výpočty
-if Z_total != 0:
-    I_complex = U / Z_total
-else:
-    I_complex = 0
+# --- Grafy ---
+t = np.linspace(0, 0.1, 1000)
+u_t = U * np.sin(omega * t)
+i_t = abs(I) * np.sin(omega * t - phi)
 
-I_mag = abs(I_complex)
-phi = np.angle(I_complex, deg=True)
-
-# Výkony
-S = U * I_mag  # zdanlivý
-P = U * I_mag * math.cos(np.radians(phi))  # činný
-Q = U * I_mag * math.sin(np.radians(phi))  # jalový
-
-# Zobrazenie výsledkov
-st.header("📊 Výsledky")
-colr1, colr2, colr3 = st.columns(3)
-colr1.metric("Impedancia |Z|", f"{abs(Z_total):.2f} Ω")
-colr2.metric("Prúd |I|", f"{I_mag:.3f} A")
-colr3.metric("Fázový posun φ", f"{phi:.2f}°")
-
-st.subheader("💡 Výkony")
-st.markdown(f"- **Činný výkon (P):** {P:.2f} W")
-st.markdown(f"- **Jalový výkon (Q):** {Q:.2f} VAR")
-st.markdown(f"- **Zdanlivý výkon (S):** {S:.2f} VA")
-
-# Fázorový diagram
-if "AC" in type_of_circuit:
-    st.subheader("📐 Fázorový diagram")
-    fig, ax = plt.subplots()
-    ax.quiver(0, 0, U, 0, angles='xy', scale_units='xy', scale=1, color='r', label='Napätie U')
-    ax.quiver(0, 0, I_mag * math.cos(np.radians(phi)), I_mag * math.sin(np.radians(phi)),
-              angles='xy', scale_units='xy', scale=1, color='b', label='Prúd I')
-    ax.set_xlim(-U, U)
-    ax.set_ylim(-U, U)
-    ax.set_aspect('equal')
-    ax.grid(True)
-    ax.legend()
-    st.pyplot(fig)
-
-# Časový priebeh – len pre RL, RC, RLC
-if "DC" in type_of_circuit and ("RL" in type_of_circuit or "RC" in type_of_circuit or "RLC" in type_of_circuit):
-    st.subheader("⏱️ Časový priebeh napätia a prúdu (prechodový jav)")
-    t = np.linspace(0, 5, 1000)
-    if "RL" in type_of_circuit:
-        tau = L / R if R > 0 else 0
-        i_t = (U / R) * (1 - np.exp(-t / tau))
-        u_L = U - R * i_t
-        st.markdown(f"Časová konštanta τ = {tau:.3f} s")
-    elif "RC" in type_of_circuit:
-        tau = R * C if R > 0 else 0
-        u_C = U * (1 - np.exp(-t / tau))
-        i_t = (U / R) * np.exp(-t / tau)
-        st.markdown(f"Časová konštanta τ = {tau:.3f} s")
-    elif "RLC" in type_of_circuit:
-        # Podobné ako tlmený oscilátor – zložitejší priebeh
-        alpha = R / (2 * L)
-        omega_0 = 1 / np.sqrt(L * C)
-        if alpha > omega_0:
-            # Preťažený (aperiodický)
-            s1 = -alpha + np.sqrt(alpha**2 - omega_0**2)
-            s2 = -alpha - np.sqrt(alpha**2 - omega_0**2)
-            i_t = (U / L) * (np.exp(s1 * t) - np.exp(s2 * t))
-        else:
-            omega_d = np.sqrt(omega_0**2 - alpha**2)
-            i_t = (U / (L * omega_d)) * np.exp(-alpha * t) * np.sin(omega_d * t)
-    fig2, ax2 = plt.subplots()
-    ax2.plot(t, i_t, label="Prúd i(t)", color="b")
-    ax2.set_xlabel("Čas [s]")
-    ax2.set_ylabel("Prúd [A]")
-    ax2.grid(True)
-    ax2.legend()
-    st.pyplot(fig2)
-
-# Diagnostika
-st.markdown("---")
-st.markdown("### ℹ️ Diagnostika a kontrola")
-if R == 0 and L == 0 and C == 0:
-    st.warning("Nie je zvolený žiadny prvok – prosím zadaj aspoň jeden.")
-else:
-    prvky = []
-    if R > 0: prvky.append("R")
-    if L > 0: prvky.append("L")
-    if C > 0: prvky.append("C")
-    st.success(f"Zvolené prvky: {', '.join(prvky)}")
+fig, ax = plt.subplots()
+ax.plot(t * 1000, u_t, label="Napätie U(t)", color="blue")
+ax.plot(t * 1000, i_t, label="Prúd I(t)", color="orange")
+ax.set_xlabel("Čas [ms]")
+ax.set_ylabel("Hodnota")
+ax.set_title("🧭 Časové priebehy napätia a prúdu")
+ax.grid(True)
+ax.legend()
+st.pyplot(fig)
